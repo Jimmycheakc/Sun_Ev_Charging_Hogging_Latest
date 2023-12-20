@@ -254,20 +254,14 @@ int main(int argc, char* agrv[])
     Thread::sleep(20000);
     */
 
-    /*
-    EvtTimer::getInstance()->FnStartStartUpTimer();
-    Thread::sleep(20000);
-    std::cout << "Stop Timer" << std::endl;
-    EvtTimer::getInstance()->FnStopStartUpTimer();
-    Thread::sleep(20000);
-    */
-
     Iniparser::getInstance()->FnIniParserInit();
     Database::getInstance()->FnDatabaseInit();
     Database::getInstance()->FnRemoveAllRecord("tbl_ev_lot_trans");
-    Database::getInstance()->FnRemoveAllRecord("tbl_ev_lot_trans_temp");
+    if (!(Database::getInstance()->FnIsTableEmpty("tbl_ev_lot_trans")))
+    {
+        Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
+    }
     //Central::getInstance()->FnSendParkInParkOutInfo();
-    EvtTimer::getInstance()->FnStartStartUpTimer();
     Camera::getInstance()->FnSubscribeToSnapShot();
 
     return 0;

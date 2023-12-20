@@ -19,11 +19,11 @@ Database* Database::database_ = nullptr;
 Database::Database()
     : firstParkingLot_{},
     secondParkingLot_{},
-    thirdParkingLot_{},
-    currFirstParkingLot_{},
-    currSecondParkingLot_{},
-    currThirdParkingLot_{}
+    thirdParkingLot_{}
 {
+    firstParkingLot_.start_up_flag = false;
+    secondParkingLot_.start_up_flag = false;
+    thirdParkingLot_.start_up_flag = false;
 }
 
 Database::~Database()
@@ -251,15 +251,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         Poco::Data::RecordSet recordSetFirstLot(select_first_lot);
         if (recordSetFirstLot.moveFirst())
         {
-            parking_lot_t* pFirstParkingLot;
-            if (tableName.compare("tbl_ev_lot_trans") == 0)
-            {
-                pFirstParkingLot = &firstParkingLot_;
-            }
-            else if (tableName.compare("tbl_ev_lot_trans_temp") == 0)
-            {
-                pFirstParkingLot = &currFirstParkingLot_;
-            }
+            parking_lot_t* pFirstParkingLot = &firstParkingLot_.parking_lot_details;
 
             pFirstParkingLot->location_code = recordSetFirstLot["location_code"].isEmpty() ? "" : recordSetFirstLot["location_code"].convert<std::string>();
             pFirstParkingLot->lot_no = recordSetFirstLot["lot_no"].isEmpty() ? "" : recordSetFirstLot["lot_no"].convert<std::string>();
@@ -272,6 +264,15 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             pFirstParkingLot->update_dt = recordSetFirstLot["update_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetFirstLot["update_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
             pFirstParkingLot->lot_in_central_sent_dt = recordSetFirstLot["lot_in_central_sent_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetFirstLot["lot_in_central_sent_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
             pFirstParkingLot->lot_out_central_sent_dt = recordSetFirstLot["lot_out_central_sent_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetFirstLot["lot_out_central_sent_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
+
+            if (!pFirstParkingLot->lot_in_dt.empty())
+            {
+                firstParkingLot_.status = "occupy";
+            }
+            else if (!pFirstParkingLot->lot_out_dt.empty())
+            {
+                firstParkingLot_.status = "release";
+            }
         }
 
         // Query on the lot no == '2' and latest time in the record
@@ -283,15 +284,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         Poco::Data::RecordSet recordSetSecondLot(select_second_lot);
         if (recordSetSecondLot.moveFirst())
         {
-            parking_lot_t* pSecondParkingLot;
-            if (tableName.compare("tbl_ev_lot_trans") == 0)
-            {
-                pSecondParkingLot = &secondParkingLot_;
-            }
-            else if (tableName.compare("tbl_ev_lot_trans_temp") == 0)
-            {
-                pSecondParkingLot = &currSecondParkingLot_;
-            }
+            parking_lot_t* pSecondParkingLot = &secondParkingLot_.parking_lot_details;
 
             pSecondParkingLot->location_code = recordSetSecondLot["location_code"].isEmpty() ? "" : recordSetSecondLot["location_code"].convert<std::string>();
             pSecondParkingLot->lot_no = recordSetSecondLot["lot_no"].isEmpty() ? "" : recordSetSecondLot["lot_no"].convert<std::string>();
@@ -304,6 +297,15 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             pSecondParkingLot->update_dt = recordSetSecondLot["update_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetSecondLot["update_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
             pSecondParkingLot->lot_in_central_sent_dt = recordSetSecondLot["lot_in_central_sent_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetSecondLot["lot_in_central_sent_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
             pSecondParkingLot->lot_out_central_sent_dt = recordSetSecondLot["lot_out_central_sent_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetSecondLot["lot_out_central_sent_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
+
+            if (!pSecondParkingLot->lot_in_dt.empty())
+            {
+                secondParkingLot_.status = "occupy";
+            }
+            else if (!pSecondParkingLot->lot_out_dt.empty())
+            {
+                secondParkingLot_.status = "release";
+            }
         }
 
         // Query on the lot no == '3' and latest time in the record
@@ -315,15 +317,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         Poco::Data::RecordSet recordSetThirdLot(select_third_lot);
         if (recordSetThirdLot.moveFirst())
         {
-            parking_lot_t* pThirdParkingLot;
-            if (tableName.compare("tbl_ev_lot_trans") == 0)
-            {
-                pThirdParkingLot = &thirdParkingLot_;
-            }
-            else if (tableName.compare("tbl_ev_lot_trans_temp") == 0)
-            {
-                pThirdParkingLot = &currThirdParkingLot_;
-            }
+            parking_lot_t* pThirdParkingLot = &thirdParkingLot_.parking_lot_details;
 
             pThirdParkingLot->location_code = recordSetThirdLot["location_code"].isEmpty() ? "" : recordSetThirdLot["location_code"].convert<std::string>();
             pThirdParkingLot->lot_no = recordSetThirdLot["lot_no"].isEmpty() ? "" : recordSetThirdLot["lot_no"].convert<std::string>();
@@ -336,6 +330,15 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             pThirdParkingLot->update_dt = recordSetThirdLot["update_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetThirdLot["update_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
             pThirdParkingLot->lot_in_central_sent_dt = recordSetThirdLot["lot_in_central_sent_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetThirdLot["lot_in_central_sent_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
             pThirdParkingLot->lot_out_central_sent_dt = recordSetThirdLot["lot_out_central_sent_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSetThirdLot["lot_out_central_sent_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
+
+             if (!pThirdParkingLot->lot_in_dt.empty())
+            {
+                thirdParkingLot_.status = "occupy";
+            }
+            else if (!pThirdParkingLot->lot_out_dt.empty())
+            {
+                thirdParkingLot_.status = "release";
+            }
         }
     }
     catch(const Poco::Exception& ex)
@@ -347,34 +350,19 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
     }
 }
 
-const Database::parking_lot_t& Database::FnGetFirstParkingLot() const
+const Database::parking_lot_info_t& Database::FnGetFirstParkingLot() const
 {
     return firstParkingLot_;
 }
 
-const Database::parking_lot_t& Database::FnGetSecondParkingLot() const
+const Database::parking_lot_info_t& Database::FnGetSecondParkingLot() const
 {
     return secondParkingLot_;
 }
 
-const Database::parking_lot_t& Database::FnGetThirdParkingLot() const
+const Database::parking_lot_info_t& Database::FnGetThirdParkingLot() const
 {
     return thirdParkingLot_;
-}
-
-const Database::parking_lot_t& Database::FnGetCurrentFirstParkingLot() const
-{
-    return currFirstParkingLot_;
-}
-
-const Database::parking_lot_t& Database::FnGetCurrentSecondParkingLot() const
-{
-    return currSecondParkingLot_;
-}
-
-const Database::parking_lot_t& Database::FnGetCurrentThirdParkingLot() const
-{
-    return currThirdParkingLot_;
 }
 
 void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)

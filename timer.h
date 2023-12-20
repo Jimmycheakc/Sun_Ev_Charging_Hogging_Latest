@@ -12,8 +12,6 @@ public:
     static EvtTimer* getInstance();
     void FnStartFilterTimer();
     void FnStopFilterTimer();
-    void FnStartStartUpTimer();
-    void FnStopStartUpTimer();
 
     EvtTimer(EvtTimer& evtTimer) = delete;
 
@@ -25,5 +23,4 @@ private:
     std::unique_ptr<Poco::Timer> pStartUpProcessTimer_;
     EvtTimer();
     void onFilterTimerTimeout(Poco::Timer& timer);
-    void onStartUpProcessTimerTimeout(Poco::Timer& timer);
 };

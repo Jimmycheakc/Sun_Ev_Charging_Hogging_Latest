@@ -25,6 +25,13 @@ public:
         std::string lot_out_central_sent_dt;
     } parking_lot_t;
 
+    typedef struct parking_lot_info
+    {
+        bool start_up_flag;
+        std::string status;
+        parking_lot_t parking_lot_details;
+    } parking_lot_info_t;
+
     static Database* getInstance();
     void FnDatabaseInit();
     void FnInsertRecord(const std::string& tableName, parking_lot_t lot);
@@ -33,12 +40,9 @@ public:
     void FnRemoveAllRecord(const std::string& tableName);
 
     void FnUpdateThreeLotParkingStatus(const std::string& tableName);
-    const parking_lot_t& FnGetFirstParkingLot() const;
-    const parking_lot_t& FnGetSecondParkingLot() const;
-    const parking_lot_t& FnGetThirdParkingLot() const;
-    const parking_lot_t& FnGetCurrentFirstParkingLot() const;
-    const parking_lot_t& FnGetCurrentSecondParkingLot() const;
-    const parking_lot_t& FnGetCurrentThirdParkingLot() const;
+    const parking_lot_info_t& FnGetFirstParkingLot() const;
+    const parking_lot_info_t& FnGetSecondParkingLot() const;
+    const parking_lot_info_t& FnGetThirdParkingLot() const;
 
     void FnSendDBParkingLotStatusToCentral(const std::string& tableName);
 
@@ -50,12 +54,9 @@ private:
     static Database* database_;
     std::unique_ptr<Poco::Data::Session> session_;
     Poco::Mutex databaseMutex_;
-    parking_lot_t firstParkingLot_;
-    parking_lot_t secondParkingLot_;
-    parking_lot_t thirdParkingLot_;
-    parking_lot_t currFirstParkingLot_;
-    parking_lot_t currSecondParkingLot_;
-    parking_lot_t currThirdParkingLot_;
+    parking_lot_info_t firstParkingLot_;
+    parking_lot_info_t secondParkingLot_;
+    parking_lot_info_t thirdParkingLot_;
     Database();
     ~Database();
 };

@@ -3,6 +3,7 @@
 #include <sstream>
 #include "camera.h"
 #include "database.h"
+#include "event.h"
 #include "ini_parser.h"
 #include "Poco/DateTime.h"
 #include "Poco/DateTimeFormat.h"
@@ -368,8 +369,8 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                             db_parking_lot.lot_in_central_sent_dt = "";
                             db_parking_lot.lot_out_central_sent_dt = "";
 
-                            Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans_temp", db_parking_lot);
-                            AppLogger::getInstance()->FnLog("Inserted into Database, tbl_ev_lot_trans_temp.");
+                            AppLogger::getInstance()->FnLog("Trigger park out event.");
+                            ParkingEventManager::getInstance()->FnTriggerParkOutEvent(db_parking_lot);
 
                         }
                         else if (event.evt_type.compare("TrafficParkingSpaceParking") == 0)
@@ -387,8 +388,8 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                             db_parking_lot.lot_in_central_sent_dt = "";
                             db_parking_lot.lot_out_central_sent_dt = "";
 
-                            Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans_temp", db_parking_lot);
-                            AppLogger::getInstance()->FnLog("Inserted into Database, tbl_ev_lot_trans_temp.");
+                            AppLogger::getInstance()->FnLog("Trigger park in event.");
+                            ParkingEventManager::getInstance()->FnTriggerParkInEvent(db_parking_lot);
                         }
 
                     }

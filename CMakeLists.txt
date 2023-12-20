@@ -14,12 +14,13 @@ link_directories(/usr/local/lib)
 # List your source files
 set(SOURCE_FILES
     ini_parser.cpp
-    camera.cpp
     common.cpp
     log.cpp
     database.cpp
     central.cpp
     timer.cpp
+    event.cpp
+    camera.cpp
     ev_charging.cpp
 )
 
