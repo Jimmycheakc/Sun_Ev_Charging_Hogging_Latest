@@ -257,10 +257,6 @@ int main(int argc, char* agrv[])
     Iniparser::getInstance()->FnIniParserInit();
     Database::getInstance()->FnDatabaseInit();
     Database::getInstance()->FnRemoveAllRecord("tbl_ev_lot_trans");
-    if (!(Database::getInstance()->FnIsTableEmpty("tbl_ev_lot_trans")))
-    {
-        Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
-    }
     //Central::getInstance()->FnSendParkInParkOutInfo();
     Camera::getInstance()->FnSubscribeToSnapShot();
 

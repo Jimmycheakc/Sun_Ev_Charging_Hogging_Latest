@@ -4,6 +4,7 @@
 #include <vector>
 #include "database.h"
 #include "ini_parser.h"
+#include "Poco/Delegate.h"
 #include "Poco/Timer.h"
 #include "Poco/Thread.h"
 #include "log.h"
@@ -12,7 +13,11 @@
 EvtTimer* EvtTimer::evtTimer_ = nullptr;
 
 EvtTimer::EvtTimer()
+    : storedFirstParkingLotInfo_{},
+    storedSecondParkingLotInfo_{},
+    storedThirdParkingLotInfo_{}
 {
+    filteringInterval = Iniparser::getInstance()->FnGetTimerForFilteringSnapShot() * 1000 * 60;
 }
 
 EvtTimer* EvtTimer::getInstance()
@@ -25,34 +30,95 @@ EvtTimer* EvtTimer::getInstance()
     return evtTimer_;
 }
 
-void EvtTimer::onFilterTimerTimeout(Poco::Timer& timer)
+void EvtTimer::onFirstParkingLotFilterTimerTimeout(Poco::Timer& timer)
 {
-    // Get the current time_point
-    auto currentTime = std::chrono::system_clock::now();
+    Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", storedFirstParkingLotInfo_);
+    Database::getInstance()->FnSendDBParkingLotStatusToCentral("tbl_ev_lot_trans");
+    Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
 
-    // Convert time_point to time_t
-    std::time_t currentTime_t = std::chrono::system_clock::to_time_t(currentTime);
-
-    // Convert time_t to tm structure
-    std::tm* currentTimeStruct = std::localtime(&currentTime_t);
-
-    // Format the time as a string
-    char buffer[80];
-    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", currentTimeStruct);
-
-    std::cout << "On Filter Timer called, time : " << buffer << std::endl;
+    FnStopFirstParkingLotFilterTimer();
 }
 
-void EvtTimer::FnStartFilterTimer()
+void EvtTimer::FnStartFirstParkingLotFilterTimer(const Database::parking_lot_t& parkingLotInfo)
 {
-    int interval = Iniparser::getInstance()->FnGetTimerForFilteringSnapShot() * 1000 * 60;
-    pFilterTimer_ = std::make_unique<Poco::Timer>(interval, interval);
+    pFirstParkingLotFilterTimer_ = std::make_unique<Poco::Timer>(filteringInterval, 0);
 
-    // Register Timer callback
-    pFilterTimer_->start(Poco::TimerCallback<EvtTimer>(*this, &EvtTimer::onFilterTimerTimeout));
+    // Register Timer Callback
+    storedFirstParkingLotInfo_ = parkingLotInfo;
+    pFirstParkingLotFilterTimer_->start(Poco::TimerCallback<EvtTimer>(*this, &EvtTimer::onFirstParkingLotFilterTimerTimeout));
+    isFirstParkingLotFilterTimerRunning_ = true;
 }
 
-void EvtTimer::FnStopFilterTimer()
+void EvtTimer::FnStopFirstParkingLotFilterTimer()
 {
-    pFilterTimer_->stop();
+    storedFirstParkingLotInfo_ = {};
+    pFirstParkingLotFilterTimer_->stop();
+    isFirstParkingLotFilterTimerRunning_ = false;
+}
+
+bool EvtTimer::FnIsFirstParkingLotFilterTimerRunning()
+{
+    return isFirstParkingLotFilterTimerRunning_;
+}
+
+void EvtTimer::onSecondParkingLotFilterTimerTimeout(Poco::Timer& timer)
+{
+    Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", storedSecondParkingLotInfo_);
+    Database::getInstance()->FnSendDBParkingLotStatusToCentral("tbl_ev_lot_trans");
+    Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
+
+    FnStopSecondParkingLotFilterTimer();
+}
+
+void EvtTimer::FnStartSecondParkingLotFilterTimer(const Database::parking_lot_t& parkingLotInfo)
+{
+    pSecondParkingLotFilterTimer_ = std::make_unique<Poco::Timer>(filteringInterval, 0);
+
+    // Register Timer Callback
+    storedSecondParkingLotInfo_ = parkingLotInfo;
+    pSecondParkingLotFilterTimer_->start(Poco::TimerCallback<EvtTimer>(*this, &EvtTimer::onSecondParkingLotFilterTimerTimeout));
+    isSecondParkingLotFilterTimerRunning_ = true;
+}
+
+void EvtTimer::FnStopSecondParkingLotFilterTimer()
+{
+    storedSecondParkingLotInfo_ = {};
+    pSecondParkingLotFilterTimer_->stop();
+    isSecondParkingLotFilterTimerRunning_ = false;
+}
+
+bool EvtTimer::FnIsSecondParkingLotFilterTimerRunning()
+{
+    return isSecondParkingLotFilterTimerRunning_;
+}
+
+void EvtTimer::onThirdParkingLotFilterTimerTimeout(Poco::Timer& timer)
+{
+    Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", storedThirdParkingLotInfo_);
+    Database::getInstance()->FnSendDBParkingLotStatusToCentral("tbl_ev_lot_trans");
+    Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
+
+    FnStopThirdParkingLotFilterTimer();
+}
+
+void EvtTimer::FnStartThirdParkingLotFilterTimer(const Database::parking_lot_t& parkingLotInfo)
+{
+    pThirdParkingLotFilterTimer_ = std::make_unique<Poco::Timer>(filteringInterval, 0);
+
+    // Register Timer Callback
+    storedThirdParkingLotInfo_ = parkingLotInfo;
+    pThirdParkingLotFilterTimer_->start(Poco::TimerCallback<EvtTimer>(*this, &EvtTimer::onThirdParkingLotFilterTimerTimeout));
+    isThirdParkingLotFilterTimerRunning_ = true;
+}
+
+void EvtTimer::FnStopThirdParkingLotFilterTimer()
+{
+    storedThirdParkingLotInfo_ = {};
+    pThirdParkingLotFilterTimer_->stop();
+    isThirdParkingLotFilterTimerRunning_ = false;
+}
+
+bool EvtTimer::FnIsThirdParkingLotFilterTimerRunning()
+{
+    return isThirdParkingLotFilterTimerRunning_;
 }

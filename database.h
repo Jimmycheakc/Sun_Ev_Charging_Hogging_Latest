@@ -41,8 +41,11 @@ public:
 
     void FnUpdateThreeLotParkingStatus(const std::string& tableName);
     const parking_lot_info_t& FnGetFirstParkingLot() const;
+    void FnSetFirstParkingLotStartUpFlag(bool flag=true);
     const parking_lot_info_t& FnGetSecondParkingLot() const;
+    void FnSetSecondParkingLotStartUpFlag(bool flag=true);
     const parking_lot_info_t& FnGetThirdParkingLot() const;
+    void FnSetThirdParkingLotStartUpFlag(bool flag=true);
 
     void FnSendDBParkingLotStatusToCentral(const std::string& tableName);
 

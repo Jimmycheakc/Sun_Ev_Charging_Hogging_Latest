@@ -49,6 +49,11 @@ void Database::FnDatabaseInit()
 
         // Establish a session
         session_ = std::make_unique<Poco::Data::Session>("MySQL", "host=localhost;user=root;password=yzxh2007;db=ev_charging_hogging_database");
+
+        if (!FnIsTableEmpty("tbl_ev_lot_trans"))
+        {
+            FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
+        }
     }
     catch (const Poco::Exception& ex)
     {
@@ -355,14 +360,29 @@ const Database::parking_lot_info_t& Database::FnGetFirstParkingLot() const
     return firstParkingLot_;
 }
 
+void Database::FnSetFirstParkingLotStartUpFlag(bool flag/*=true*/)
+{
+    firstParkingLot_.start_up_flag = flag;
+}
+
 const Database::parking_lot_info_t& Database::FnGetSecondParkingLot() const
 {
     return secondParkingLot_;
 }
 
+void Database::FnSetSecondParkingLotStartUpFlag(bool flag/*=true*/)
+{
+    secondParkingLot_.start_up_flag = flag;
+}
+
 const Database::parking_lot_info_t& Database::FnGetThirdParkingLot() const
 {
     return thirdParkingLot_;
+}
+
+void Database::FnSetThirdParkingLotStartUpFlag(bool flag/*=true*/)
+{
+    thirdParkingLot_.start_up_flag = flag;
 }
 
 void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
