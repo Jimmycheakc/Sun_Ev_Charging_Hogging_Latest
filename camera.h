@@ -27,8 +27,6 @@ public:
     const std::string imageDirectoryPath = Poco::Path::home() + "Desktop/Ev_Charging_Hogging_Image";
 
     static Camera* getInstance();
-    bool FnGetHeartBeat();
-    bool FnGetSnapShot();
     bool FnSubscribeToSnapShot();
     bool FnSetCurrentTime();
     bool FnGetCurrentTime(std::string& dateTime);
@@ -40,11 +38,10 @@ public:
 private:
     static Camera* camera_;
     std::string cameraServerIP;
+    bool heartbeatStartUpDetectFlag_;
     Camera();
     void createImageDirectory();
     bool isImageDirectoryExists();
-    bool do_heartBeatRequest(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response);
-    bool do_snapShotRequest(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response);
     bool do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response);
     bool do_setCurrentTime(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response);
     bool do_getCurrentTime(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response, std::string& dateTime);

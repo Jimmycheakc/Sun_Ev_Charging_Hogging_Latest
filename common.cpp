@@ -70,5 +70,12 @@ std::string Common::FnConverImageToBase64String(const std::string& imagePath)
     }
     
     imageFile.close();
-    return buffer;
+
+    // Use Poco's Base64Encoder to encode the binary data
+    std::ostringstream encoded;
+    Poco::Base64Encoder encoder(encoded);
+    encoder << buffer;
+    encoder.close();
+
+    return encoded.str();
 }

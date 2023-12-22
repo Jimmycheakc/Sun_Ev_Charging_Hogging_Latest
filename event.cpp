@@ -24,18 +24,18 @@ ParkingEventManager* ParkingEventManager::getInstance()
 
 void ParkingEventManager::FnTriggerParkInEvent(const Database::parking_lot_t& parkInInfo)
 {
-    parkInEvent_.notifyAsync(this, parkInInfo);
+    parkInEvent_.notify(this, parkInInfo);
 }
 
 void ParkingEventManager::FnTriggerParkOutEvent(const Database::parking_lot_t& parkOutInfo)
 {
-    parkOutEvent_.notifyAsync(this, parkOutInfo);
+    parkOutEvent_.notify(this, parkOutInfo);
 }
 
 void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkInInfo)
 {
-    std::cout << "parkInInfo.location_code : " << parkInInfo.location_code << std::endl;
-    std::cout << "parkInInfo.lpn : " << parkInInfo.lpn << std::endl;
+    std::cout << __func__ << "parkInInfo.location_code : " << parkInInfo.location_code << std::endl;
+    std::cout << __func__ << "parkInInfo.lpn : " << parkInInfo.lpn << std::endl;
     bool sendFirstLotToCentralAndUpdateStatus = false;
     bool sendSecondLotToCentralAndUpdateStatus = false;
     bool sendThirdLotToCentralAndUpdateStatus = false;
@@ -46,6 +46,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
         (Database::getInstance()->FnGetThirdParkingLot().start_up_flag == false)
     )
     {
+        std::cout << __func__ << "Handle startup case" << std::endl;
         if ((parkInInfo.lot_no.compare("1") == 0) &&
             (Database::getInstance()->FnGetFirstParkingLot().parking_lot_details.lpn.compare(parkInInfo.lpn) != 0))
         {
@@ -53,6 +54,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
             Database::getInstance()->FnSendDBParkingLotStatusToCentral("tbl_ev_lot_trans");
             Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
             Database::getInstance()->FnSetFirstParkingLotStartUpFlag();
+            std::cout << __func__ << "Handle startup case 1" << std::endl;
         }
         else if ((parkInInfo.lot_no.compare("2") == 0) &&
             (Database::getInstance()->FnGetSecondParkingLot().parking_lot_details.lpn.compare(parkInInfo.lpn) != 0))
@@ -61,6 +63,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
             Database::getInstance()->FnSendDBParkingLotStatusToCentral("tbl_ev_lot_trans");
             Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
             Database::getInstance()->FnSetSecondParkingLotStartUpFlag();
+            std::cout << __func__ << "Handle startup case 2" << std::endl;
         }
         else if ((parkInInfo.lot_no.compare("3") == 0) &&
             (Database::getInstance()->FnGetThirdParkingLot().parking_lot_details.lpn.compare(parkInInfo.lpn) != 0))
@@ -69,6 +72,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
             Database::getInstance()->FnSendDBParkingLotStatusToCentral("tbl_ev_lot_trans");
             Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
             Database::getInstance()->FnSetThirdParkingLotStartUpFlag();
+            std::cout << __func__ << "Handle startup case 3" << std::endl;
         }
 
         return;
@@ -81,12 +85,14 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
     {
         if (EvtTimer::getInstance()->FnIsFirstParkingLotFilterTimerRunning())
         {
+            std::cout << __func__ << "Handle normal case 1 --> timer running and stop timer" << std::endl;
             EvtTimer::getInstance()->FnStopFirstParkingLotFilterTimer();
         }
         else
         {
             if (Database::getInstance()->FnGetFirstParkingLot().status.compare("release") == 0)
             {
+                std::cout << __func__ << "Handle normal case 1 --> no timer and last status == release" << std::endl;
                 Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", parkInInfo);
                 sendFirstLotToCentralAndUpdateStatus = true;
             }
@@ -94,6 +100,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
             {
                 if (Database::getInstance()->FnGetFirstParkingLot().parking_lot_details.lpn.compare(parkInInfo.lpn) != 0)
                 {
+                    std::cout << __func__ << "Handle normal case 1 --> no timer and last status == occupy and lpn different" << std::endl;
                     Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", parkInInfo);
                     sendFirstLotToCentralAndUpdateStatus = true;
                 }
@@ -105,12 +112,14 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
     {
         if (EvtTimer::getInstance()->FnIsSecondParkingLotFilterTimerRunning())
         {
+            std::cout << __func__ << "Handle normal case 2 --> timer running and stop timer" << std::endl;
             EvtTimer::getInstance()->FnStopSecondParkingLotFilterTimer();
         }
         else
         {
             if (Database::getInstance()->FnGetSecondParkingLot().status.compare("release") == 0)
             {
+                std::cout << __func__ << "Handle normal case 2 --> no timer and last status == release" << std::endl;
                 Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", parkInInfo);
                 sendSecondLotToCentralAndUpdateStatus = true;
             }
@@ -118,6 +127,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
             {
                 if (Database::getInstance()->FnGetSecondParkingLot().parking_lot_details.lpn.compare(parkInInfo.lpn) != 0)
                 {
+                    std::cout << __func__ << "Handle normal case 2 --> no timer and last status == occupy and lpn different" << std::endl;
                     Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", parkInInfo);
                     sendSecondLotToCentralAndUpdateStatus = true;
                 }
@@ -129,12 +139,14 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
     {
         if (EvtTimer::getInstance()->FnIsThirdParkingLotFilterTimerRunning())
         {
+            std::cout << __func__ << "Handle normal case 3 --> timer running and stop timer" << std::endl;
             EvtTimer::getInstance()->FnStopThirdParkingLotFilterTimer();
         }
         else
         {
             if (Database::getInstance()->FnGetThirdParkingLot().status.compare("release") == 0)
             {
+                std::cout << __func__ << "Handle normal case 3 --> no timer and last status == release" << std::endl;
                 Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", parkInInfo);
                 sendThirdLotToCentralAndUpdateStatus = true;
             }
@@ -142,6 +154,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
             {
                 if (Database::getInstance()->FnGetThirdParkingLot().parking_lot_details.lpn.compare(parkInInfo.lpn) != 0)
                 {
+                    std::cout << __func__ << "Handle normal case 3 --> no timer and last status == occupy and lpn different" << std::endl;
                     Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", parkInInfo);
                     sendThirdLotToCentralAndUpdateStatus = true;
                 }
@@ -151,6 +164,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
 
     if (sendFirstLotToCentralAndUpdateStatus || sendSecondLotToCentralAndUpdateStatus || sendThirdLotToCentralAndUpdateStatus)
     {
+        std::cout << __func__ << "Send to central and update lot status : " << "1:" << sendFirstLotToCentralAndUpdateStatus << " 2:"<< sendSecondLotToCentralAndUpdateStatus << " 3:" << sendThirdLotToCentralAndUpdateStatus << std::endl;
         Database::getInstance()->FnSendDBParkingLotStatusToCentral("tbl_ev_lot_trans");
         Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
     }
@@ -158,8 +172,8 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
 
 void ParkingEventManager::handleParkOutEvent(const Database::parking_lot_t& parkOutInfo)
 {
-    std::cout << "parkOutInfo.location_code : " << parkOutInfo.location_code << std::endl;
-    std::cout << "parkOutInfo.lpn : " << parkOutInfo.lpn << std::endl;
+    std::cout << __func__ << "parkOutInfo.location_code : " << parkOutInfo.location_code << std::endl;
+    std::cout << __func__ << "parkOutInfo.lpn : " << parkOutInfo.lpn << std::endl;
     Database::parking_lot_t parkOutInfoTemp = parkOutInfo;
 
     // Handle start up process case
@@ -168,20 +182,24 @@ void ParkingEventManager::handleParkOutEvent(const Database::parking_lot_t& park
         (Database::getInstance()->FnGetThirdParkingLot().start_up_flag == false)
     )
     {
+        std::cout << __func__ << "Handle startup case" << std::endl;
         Database::getInstance()->FnInsertRecord("tbl_ev_lot_trans", parkOutInfo);
         Database::getInstance()->FnSendDBParkingLotStatusToCentral("tbl_ev_lot_trans");
         Database::getInstance()->FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
 
         if (parkOutInfo.lot_no.compare("1") == 0)
         {
+            std::cout << __func__ << "Handle startup case 1" << std::endl;
             Database::getInstance()->FnSetFirstParkingLotStartUpFlag();
         }
         else if (parkOutInfo.lot_no.compare("2") == 0)
         {
+            std::cout << __func__ << "Handle startup case 2" << std::endl;
             Database::getInstance()->FnSetFirstParkingLotStartUpFlag();
         }
         else if (parkOutInfo.lot_no.compare("3") == 0)
         {
+            std::cout << __func__ << "Handle startup case 3" << std::endl;
             Database::getInstance()->FnSetFirstParkingLotStartUpFlag();
         }
 
@@ -194,6 +212,7 @@ void ParkingEventManager::handleParkOutEvent(const Database::parking_lot_t& park
     {
         if (Database::getInstance()->FnGetFirstParkingLot().status.compare("occupy") == 0)
         {
+            std::cout << __func__ << "Handle normal case 1 --> start timer and last status == occupy" << std::endl;
             parkOutInfoTemp.lpn = Database::getInstance()->FnGetFirstParkingLot().parking_lot_details.lpn;
             EvtTimer::getInstance()->FnStartFirstParkingLotFilterTimer(parkOutInfoTemp);
         }
@@ -202,6 +221,7 @@ void ParkingEventManager::handleParkOutEvent(const Database::parking_lot_t& park
     {
         if (Database::getInstance()->FnGetSecondParkingLot().status.compare("occupy") == 0)
         {
+            std::cout << __func__ << "Handle normal case 2 --> start timer and last status == occupy" << std::endl;
             parkOutInfoTemp.lpn = Database::getInstance()->FnGetSecondParkingLot().parking_lot_details.lpn;
             EvtTimer::getInstance()->FnStartSecondParkingLotFilterTimer(parkOutInfoTemp);
         }
@@ -210,6 +230,7 @@ void ParkingEventManager::handleParkOutEvent(const Database::parking_lot_t& park
     {
         if (Database::getInstance()->FnGetThirdParkingLot().status.compare("occupy") == 0)
         {
+            std::cout << __func__ << "Handle normal case 3 --> start timer and last status == occupy" << std::endl;
             parkOutInfoTemp.lpn = Database::getInstance()->FnGetThirdParkingLot().parking_lot_details.lpn;
             EvtTimer::getInstance()->FnStartThirdParkingLotFilterTimer(parkOutInfoTemp);
         }

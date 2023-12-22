@@ -44,14 +44,18 @@ void Database::FnDatabaseInit()
 {
     try
     {
+        AppLogger::getInstance()->FnLog("Database initialization.");
         // Initialize MySQL connector
         Poco::Data::MySQL::Connector::registerConnector();
 
         // Establish a session
         session_ = std::make_unique<Poco::Data::Session>("MySQL", "host=localhost;user=root;password=yzxh2007;db=ev_charging_hogging_database");
 
+        // Temp: Need to remove
+        Database::getInstance()->FnRemoveAllRecord("tbl_ev_lot_trans");
         if (!FnIsTableEmpty("tbl_ev_lot_trans"))
         {
+            AppLogger::getInstance()->FnLog("'tbl_ev_lot_trans' database not empty, update 3 parking lots.");
             FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
         }
     }
@@ -105,6 +109,22 @@ void Database::FnInsertRecord(const std::string& tableName, parking_lot_t lot)
                 Poco::Data::Keywords::use(lot_out_central_sent_dt);
 
         insert.execute();
+        
+        // Log message
+        std::ostringstream msg;
+        msg << insert.toString();
+        msg << " ==> (" << location_code << ", ";
+        msg << lot_no << ", ";
+        msg << lpn << ", ";
+        msg << lot_in_image_path << ", ";
+        msg << lot_out_image_path << ", ";
+        msg << lot_in_dt << ", ";
+        msg << lot_out_dt << ", ";
+        msg << add_dt << ", ";
+        msg << update_dt << ", ";
+        msg << lot_in_central_sent_dt << ", ";
+        msg << lot_out_central_sent_dt << ")";
+        AppLogger::getInstance()->FnLog(msg.str());
     }
     catch(const Poco::Exception& ex)
     {
@@ -133,6 +153,7 @@ void Database::FnSelectAllRecord(const std::string& tableName, std::vector<parki
         select << query;
 
         select.execute();
+        AppLogger::getInstance()->FnLog(select.toString());
 
         Poco::Data::RecordSet recordSet(select);
         if (recordSet.moveFirst())
@@ -155,6 +176,22 @@ void Database::FnSelectAllRecord(const std::string& tableName, std::vector<parki
                 lot.lot_out_central_sent_dt = recordSet["lot_out_central_sent_dt"].isEmpty() ? "NULL" : Poco::DateTimeFormatter::format(recordSet["lot_out_central_sent_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
 
                 v_lot.push_back(lot);
+
+                // Log the values for each record
+                std::ostringstream msg;
+                msg << "Record: "
+                    << "location_code=" << lot.location_code
+                    << ", lot_no=" << lot.lot_no
+                    << ", lpn=" << lot.lpn
+                    << ", lot_in_image_path=" << lot.lot_in_image_path
+                    << ", lot_out_image_path=" << lot.lot_out_image_path
+                    << ", lot_in_dt=" << lot.lot_in_dt
+                    << ", lot_out_dt=" << lot.lot_out_dt
+                    << ", add_dt=" << lot.add_dt
+                    << ", update_dt=" << lot.update_dt
+                    << ", lot_in_central_sent_dt=" << lot.lot_in_central_sent_dt
+                    << ", lot_out_central_sent_dt=" << lot.lot_out_central_sent_dt;
+                AppLogger::getInstance()->FnLog(msg.str());
             } while (recordSet.moveNext());
         }
 
@@ -184,6 +221,7 @@ bool Database::FnIsTableEmpty(const std::string& tableName)
         select << query;
 
         select.execute();
+        AppLogger::getInstance()->FnLog(select.toString());
 
         Poco::Data::RecordSet recordSet(select);
         
@@ -225,6 +263,7 @@ void Database::FnRemoveAllRecord(const std::string& tableName)
         remove << query;
 
         remove.execute();
+        AppLogger::getInstance()->FnLog(remove.toString());
     }
     catch(const Poco::Exception& ex)
     {
@@ -253,6 +292,8 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         select_first_lot << query_first_lot;
 
         select_first_lot.execute();
+        AppLogger::getInstance()->FnLog(select_first_lot.toString());
+
         Poco::Data::RecordSet recordSetFirstLot(select_first_lot);
         if (recordSetFirstLot.moveFirst())
         {
@@ -278,6 +319,23 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             {
                 firstParkingLot_.status = "release";
             }
+
+            // Log the values for each record
+            std::ostringstream firstMsg;
+            firstMsg << "Record: "
+                << "pFirstParkingLot->location_code=" << pFirstParkingLot->location_code
+                << ", pFirstParkingLot->lot_no=" << pFirstParkingLot->lot_no
+                << ", pFirstParkingLot->lpn=" << pFirstParkingLot->lpn
+                << ", pFirstParkingLot->lot_in_image_path=" << pFirstParkingLot->lot_in_image_path
+                << ", pFirstParkingLot->lot_out_image_path=" << pFirstParkingLot->lot_out_image_path
+                << ", pFirstParkingLot->lot_in_dt=" << pFirstParkingLot->lot_in_dt
+                << ", pFirstParkingLot->lot_out_dt=" << pFirstParkingLot->lot_out_dt
+                << ", pFirstParkingLot->add_dt=" << pFirstParkingLot->add_dt
+                << ", pFirstParkingLot->update_dt=" << pFirstParkingLot->update_dt
+                << ", pFirstParkingLot->lot_in_central_sent_dt=" << pFirstParkingLot->lot_in_central_sent_dt
+                << ", pFirstParkingLot->lot_out_central_sent_dt=" << pFirstParkingLot->lot_out_central_sent_dt
+                << ", firstParkingLot_.status=" << firstParkingLot_.status;
+            AppLogger::getInstance()->FnLog(firstMsg.str());
         }
 
         // Query on the lot no == '2' and latest time in the record
@@ -286,6 +344,8 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         select_second_lot << query_second_lot;
 
         select_second_lot.execute();
+        AppLogger::getInstance()->FnLog(select_second_lot.toString());
+
         Poco::Data::RecordSet recordSetSecondLot(select_second_lot);
         if (recordSetSecondLot.moveFirst())
         {
@@ -311,6 +371,23 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             {
                 secondParkingLot_.status = "release";
             }
+
+            // Log the values for each record
+            std::ostringstream secondMsg;
+            secondMsg << "Record: "
+                << "pSecondParkingLot->location_code=" << pSecondParkingLot->location_code
+                << ", pSecondParkingLot->lot_no=" << pSecondParkingLot->lot_no
+                << ", pSecondParkingLot->lpn=" << pSecondParkingLot->lpn
+                << ", pSecondParkingLot->lot_in_image_path=" << pSecondParkingLot->lot_in_image_path
+                << ", pSecondParkingLot->lot_out_image_path=" << pSecondParkingLot->lot_out_image_path
+                << ", pSecondParkingLot->lot_in_dt=" << pSecondParkingLot->lot_in_dt
+                << ", pSecondParkingLot->lot_out_dt=" << pSecondParkingLot->lot_out_dt
+                << ", pSecondParkingLot->add_dt=" << pSecondParkingLot->add_dt
+                << ", pSecondParkingLot->update_dt=" << pSecondParkingLot->update_dt
+                << ", pSecondParkingLot->lot_in_central_sent_dt=" << pSecondParkingLot->lot_in_central_sent_dt
+                << ", pSecondParkingLot->lot_out_central_sent_dt=" << pSecondParkingLot->lot_out_central_sent_dt
+                << ", secondParkingLot_.status=" << secondParkingLot_.status;
+            AppLogger::getInstance()->FnLog(secondMsg.str());
         }
 
         // Query on the lot no == '3' and latest time in the record
@@ -319,6 +396,8 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         select_third_lot << query_third_lot;
 
         select_third_lot.execute();
+        AppLogger::getInstance()->FnLog(select_third_lot.toString());
+
         Poco::Data::RecordSet recordSetThirdLot(select_third_lot);
         if (recordSetThirdLot.moveFirst())
         {
@@ -344,6 +423,23 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             {
                 thirdParkingLot_.status = "release";
             }
+
+            // Log the values for each record
+            std::ostringstream thirdMsg;
+            thirdMsg << "Record: "
+                << "pThirdParkingLot->location_code=" << pThirdParkingLot->location_code
+                << ", pThirdParkingLot->lot_no=" << pThirdParkingLot->lot_no
+                << ", pThirdParkingLot->lpn=" << pThirdParkingLot->lpn
+                << ", pThirdParkingLot->lot_in_image_path=" << pThirdParkingLot->lot_in_image_path
+                << ", pThirdParkingLot->lot_out_image_path=" << pThirdParkingLot->lot_out_image_path
+                << ", pThirdParkingLot->lot_in_dt=" << pThirdParkingLot->lot_in_dt
+                << ", pThirdParkingLot->lot_out_dt=" << pThirdParkingLot->lot_out_dt
+                << ", pThirdParkingLot->add_dt=" << pThirdParkingLot->add_dt
+                << ", pThirdParkingLot->update_dt=" << pThirdParkingLot->update_dt
+                << ", pThirdParkingLot->lot_in_central_sent_dt=" << pThirdParkingLot->lot_in_central_sent_dt
+                << ", pThirdParkingLot->lot_out_central_sent_dt=" << pThirdParkingLot->lot_out_central_sent_dt
+                << ", thirdParkingLot_.status=" << thirdParkingLot_.status;
+            AppLogger::getInstance()->FnLog(thirdMsg.str());
         }
     }
     catch(const Poco::Exception& ex)
@@ -402,6 +498,8 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
         select << query;
 
         select.execute();
+        AppLogger::getInstance()->FnLog(select.toString());
+
         Poco::Data::RecordSet recordSet(select);
         if (recordSet.moveFirst())
         {
@@ -431,6 +529,19 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
                     lot_out_central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
                 }
 
+                // Log the values for each record
+                std::ostringstream selectMsg;
+                selectMsg << "Record: "
+                    << "lot_no=" << lot_no
+                    << ", lpn=" << lpn
+                    << ", lot_in_image_path=" << lot_in_image_path
+                    << ", lot_out_image_path=" << lot_out_image_path
+                    << ", lot_in_dt=" << lot_in_dt
+                    << ", lot_out_dt=" << lot_out_dt
+                    << ", lot_in_central_sent_dt=" << lot_in_central_sent_dt
+                    << ", lot_out_central_sent_dt=" << lot_out_central_sent_dt;
+                AppLogger::getInstance()->FnLog(selectMsg.str());
+
                 if (Central::getInstance()->FnSendParkInParkOutInfo(lot_no, lpn, lot_in_image, lot_out_image, lot_in_dt, lot_out_dt))
                 {
                     std::string id = recordSet["id"].convert<std::string>();
@@ -444,6 +555,13 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
                             Poco::Data::Keywords::use(id);
 
                     update.execute();
+
+                    AppLogger::getInstance()->FnLog(update.toString());
+                    std::ostringstream updateMsg;
+                    updateMsg << "lot_in_central_sent_dt=" << lot_in_central_sent_dt
+                        << ", lot_out_central_sent_dt=" << lot_out_central_sent_dt
+                        << ", id=" << id;
+                    AppLogger::getInstance()->FnLog(updateMsg.str());
                 }
             } while (recordSet.moveNext());
         }

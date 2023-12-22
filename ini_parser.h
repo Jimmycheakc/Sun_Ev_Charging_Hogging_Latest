@@ -15,6 +15,7 @@ public:
     std::string FnGetCameraIP();
     std::string FnGetCentralIP();
     int FnGetCentralServerPort();
+    int FnGetTimerTimeoutForCameraHeartbeatSendToCentral();
 
     Iniparser(Iniparser& iniparser) = delete;
 
@@ -28,5 +29,6 @@ private:
     std::string cameraIP_;
     std::string centralIP_;
     int centralServerPort_;
+    int timerTimeoutForCameraHeartbeatSendToCentral_;
     Iniparser();
 };

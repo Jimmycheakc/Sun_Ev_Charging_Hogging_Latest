@@ -1,7 +1,9 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <sstream>
 #include "camera.h"
+#include "central.h"
 #include "database.h"
 #include "event.h"
 #include "ini_parser.h"
@@ -23,11 +25,13 @@
 #include "Poco/NullStream.h"
 #include "common.h"
 #include "log.h"
+#include "timer.h"
 
 Camera* Camera::camera_ = nullptr;
 
 Camera::Camera()
 {
+    heartbeatStartUpDetectFlag_ = false;
     cameraServerIP = Iniparser::getInstance()->FnGetCameraIP();
     createImageDirectory();
 }
@@ -44,6 +48,7 @@ Camera* Camera::getInstance()
 
 void Camera::createImageDirectory()
 {
+    AppLogger::getInstance()->FnLog("Creating image directory.");
     Poco::File imageDirectory(imageDirectoryPath);
 
     try
@@ -69,149 +74,8 @@ bool Camera::isImageDirectoryExists()
     return imageDirectory.exists();
 }
 
-bool Camera::do_heartBeatRequest(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response)
-{
-    AppLogger::getInstance()->FnLog(request.getURI());
-
-    session.sendRequest(request);
-    std::istream& rs = session.receiveResponse(response);
-    
-    // Log the response header
-    std::ostringstream msg;
-    msg << "Status : " << response.getStatus() << " Reason : " << response.getReason();
-    AppLogger::getInstance()->FnLog(msg.str());
-    
-    if (response.getStatus() != Poco::Net::HTTPResponse::HTTP_UNAUTHORIZED)
-    {
-        std::ostringstream responseStream;
-        Poco::StreamCopier::copyStream(rs, responseStream);
-        AppLogger::getInstance()->FnLog(responseStream.str());
-
-        // Temp: Handle the response
-
-        return true;
-    }
-    else
-    {
-        Poco::NullOutputStream null;
-        Poco::StreamCopier::copyStream(rs, null);
-        return false;
-    }
-}
-
-bool Camera::FnGetHeartBeat()
-{
-    const std::string uri_link= "http://" + cameraServerIP + "/cgi-bin/trafficParking.cgi?action=getAllParkingSpaceStatus";
-
-    try
-    {
-        Poco::URI uri(uri_link);
-        std::string path(uri.getPathAndQuery());
-        if (path.empty())
-        {
-            path = "/";
-        }
-        Poco::Net::HTTPDigestCredentials credentials(username, password);
-        Poco::Net::HTTPClientSession session(uri.getHost(), uri.getPort());
-        Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET, path, Poco::Net::HTTPMessage::HTTP_1_1);
-        Poco::Net::HTTPResponse response;
-
-        if (!do_heartBeatRequest(session, request, response))
-        {
-            credentials.authenticate(request, response);
-            if (!do_heartBeatRequest(session, request, response))
-            {
-                AppLogger::getInstance()->FnLog("Invalid username or password");
-                return false;
-            }
-        }
-    }
-    catch (Poco::Exception& ex)
-    {
-        AppLogger::getInstance()->FnLog(ex.displayText());
-        return false;
-    }
-
-    return true;
-}
-
-bool Camera::do_snapShotRequest(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response)
-{
-    AppLogger::getInstance()->FnLog(request.getURI());
-
-    session.sendRequest(request);
-    std::istream& rs = session.receiveResponse(response);
-
-    std::ostringstream msg;
-    msg << "Status : " << response.getStatus() << " Reason : " << response.getReason();
-    AppLogger::getInstance()->FnLog(msg.str());
-
-    if (response.getStatus() != Poco::Net::HTTPResponse::HTTP_UNAUTHORIZED)
-    {
-        std::ostringstream responseStream;
-        Poco::StreamCopier::copyStream(rs, responseStream);
-
-        // Save the image
-        std::string imageData = responseStream.str();
-        std::string absImagePath = imageDirectoryPath + "/Img_" + Common::getInstance()->FnFormatDateYYMMDD_HHMMSS() + ".jpg";
-        if (!isImageDirectoryExists())
-        {
-            createImageDirectory();
-        }
-        Poco::FileOutputStream fileStream(absImagePath);
-        fileStream << imageData;
-        fileStream.close();
-
-        return true;
-    }
-    else
-    {
-        Poco::NullOutputStream null;
-        Poco::StreamCopier::copyStream(rs, null);
-        return false;
-    }
-}
-
-bool Camera::FnGetSnapShot()
-{
-    const std::string uri_link= "http://" + cameraServerIP + "/cgi-bin/snapshot.cgi?channel=1&type=0";
-
-    try
-    {
-        Poco::URI uri(uri_link);
-        std::string path(uri.getPathAndQuery());
-        if (path.empty())
-        {
-            path = "/";
-        }
-        Poco::Net::HTTPDigestCredentials credentials(username, password);
-        Poco::Net::HTTPClientSession session(uri.getHost(), uri.getPort());
-        Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET, path, Poco::Net::HTTPMessage::HTTP_1_1);
-        Poco::Net::HTTPResponse response;
-
-        if (!do_snapShotRequest(session, request, response))
-        {
-            credentials.authenticate(request, response);
-            if (!do_snapShotRequest(session, request, response))
-            {
-                AppLogger::getInstance()->FnLog("Invalid username or password");
-                return false;
-            }
-        }
-    }
-    catch (Poco::Exception& ex)
-    {
-        AppLogger::getInstance()->FnLog(ex.displayText());
-        return false;
-    }
-
-    return true;
-}
-
 bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response)
 {
-    AppLogger::getInstance()->FnLog(request.getURI());
-
     session.sendRequest(request);
     std::istream& rs = session.receiveResponse(response);
     
@@ -242,11 +106,11 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
 
             if (!cl.empty() && !ct.empty())
             {
-                int contentLength = std::stoi(cl);
+                Poco::Int64 contentLength = std::stoi(cl);
                 if (ct == "text/plain") {
                     // Process text/plain part
                     std::string partData;
-                    Poco::StreamCopier::copyToString(reader.stream(), partData);
+                    Poco::StreamCopier::copyToString(reader.stream(), partData, contentLength);
                     std::istringstream partStream(partData);
                     std::string line;
                     memset(&event, 0 , sizeof(event));
@@ -255,6 +119,16 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                     {
                         if (line.find("Heartbeat") != std::string::npos)
                         {
+                            if (heartbeatStartUpDetectFlag_ == false)
+                            {
+                                EvtTimer::getInstance()->FnStartCameraHeartbeatSendToCentralTimer();
+                                Central::getInstance()->FnSendHeartBeatUpdate();
+                                heartbeatStartUpDetectFlag_ = true;
+                            }
+                            else
+                            {
+                                EvtTimer::getInstance()->FnRestartCameraHeartbeatSendToCentralTimer();
+                            }
                             AppLogger::getInstance()->FnLog(line);
                         }
                         else if (line.find("].Channel") != std::string::npos)
@@ -317,6 +191,7 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                 {
                     try
                     {
+                        AppLogger::getInstance()->FnLog("Saving image.");
                         // Save the image
                         std::string absImagePath;
                         std::string dateTimeImageTime;
@@ -351,7 +226,7 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                         }
                         AppLogger::getInstance()->FnLog("Image stored :" + absImagePath);
                         Poco::FileOutputStream fileStream(absImagePath);
-                        Poco::StreamCopier::copyStream(reader.stream(), fileStream);
+                        Poco::StreamCopier::copyStream(reader.stream(), fileStream, contentLength);
                         fileStream.close();
 
                         if (event.evt_type.compare("TrafficParkingSpaceNoParking") == 0)
@@ -414,7 +289,14 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
 
 bool Camera::FnSubscribeToSnapShot()
 {
+    bool ret = false;
+    int retry = 0;
+    int maxRetries = 3;
     const std::string uri_link= "http://" + cameraServerIP + "/cgi-bin/snapManager.cgi?action=attachFileProc&channel=1&heartbeat=60&Flags[0]=Event&Events=[TrafficParkingSpaceParking%2CTrafficParkingSpaceNoParking]";
+
+    std::ostringstream msgReq;
+    msgReq << __func__ << " : Get " << uri_link;
+    AppLogger::getInstance()->FnLog(msgReq.str());
 
     try
     {
@@ -429,29 +311,45 @@ bool Camera::FnSubscribeToSnapShot()
         Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET, path, Poco::Net::HTTPMessage::HTTP_1_1);
         Poco::Net::HTTPResponse response;
 
-        if (!do_subscribeToSnapShot(session, request, response))
+        do
         {
-            credentials.authenticate(request, response);
             if (!do_subscribeToSnapShot(session, request, response))
             {
-                AppLogger::getInstance()->FnLog("Invalid username or password");
-                return false;
+                credentials.authenticate(request, response);
+                if (!do_subscribeToSnapShot(session, request, response))
+                {
+                    AppLogger::getInstance()->FnLog("Authentication : Failed, Invalid username or password");
+                    retry++;
+                }
+                else
+                {
+                    std::ostringstream msgSuccess;
+                    msgSuccess << "Get " << uri_link << " : Succeed";
+                    AppLogger::getInstance()->FnLog(msgSuccess.str());
+                    ret = true;
+                    break;
+                }
             }
-        }
+            else
+            {
+                std::ostringstream msgFail;
+                msgFail << "GET " << uri_link << " : Failed, Retries = " << retry;
+                AppLogger::getInstance()->FnLog(msgFail.str());
+                retry++;
+            }
+
+        } while(retry <= maxRetries);
     }
     catch (Poco::Exception& ex)
     {
         AppLogger::getInstance()->FnLog(ex.displayText());
-        return false;
     }
 
-    return true;
+    return ret;
 }
 
 bool Camera::do_getCurrentTime(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response, std::string& dateTime)
 {
-    AppLogger::getInstance()->FnLog(request.getURI());
-
     session.sendRequest(request);
     std::istream& rs = session.receiveResponse(response);
     
@@ -479,7 +377,14 @@ bool Camera::do_getCurrentTime(Poco::Net::HTTPClientSession& session, Poco::Net:
 
 bool Camera::FnGetCurrentTime(std::string& dateTime)
 {
+    bool ret = false;
+    int retry = 0;
+    int maxRetries = 3;
     const std::string uri_link= "http://" + cameraServerIP + "/cgi-bin/global.cgi?action=getCurrentTime";
+
+    std::ostringstream msgReq;
+    msgReq << __func__ << " : Get " << uri_link;
+    AppLogger::getInstance()->FnLog(msgReq.str());
 
     try
     {
@@ -494,29 +399,45 @@ bool Camera::FnGetCurrentTime(std::string& dateTime)
         Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET, path, Poco::Net::HTTPMessage::HTTP_1_1);
         Poco::Net::HTTPResponse response;
 
-        if (!do_getCurrentTime(session, request, response, dateTime))
+        do
         {
-            credentials.authenticate(request, response);
             if (!do_getCurrentTime(session, request, response, dateTime))
             {
-                AppLogger::getInstance()->FnLog("Invalid username or password");
-                return false;
+                credentials.authenticate(request, response);
+                if (!do_getCurrentTime(session, request, response, dateTime))
+                {
+                    AppLogger::getInstance()->FnLog("Authentication : Failed, Invalid username or password");
+                    retry++;
+                }
+                else
+                {
+                    std::ostringstream msgSuccess;
+                    msgSuccess << "Get " << uri_link << " : Succeed";
+                    AppLogger::getInstance()->FnLog(msgSuccess.str());
+                    ret = true;
+                    break;
+                }
             }
-        }
+            else
+            {
+                std::ostringstream msgFail;
+                msgFail << "GET " << uri_link << " : Failed, Retries = " << retry;
+                AppLogger::getInstance()->FnLog(msgFail.str());
+                retry++;
+            }
+
+        } while(retry <= maxRetries);
     }
     catch (Poco::Exception& ex)
     {
         AppLogger::getInstance()->FnLog(ex.displayText());
-        return false;
     }
 
-    return true;
+    return ret;
 }
 
 bool Camera::do_setCurrentTime(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response)
 {
-    AppLogger::getInstance()->FnLog(request.getURI());
-
     session.sendRequest(request);
     std::istream& rs = session.receiveResponse(response);
     
@@ -550,10 +471,16 @@ bool Camera::do_setCurrentTime(Poco::Net::HTTPClientSession& session, Poco::Net:
 
 bool Camera::FnSetCurrentTime()
 {
+    bool ret = false;
+    int retry = 0;
+    int maxRetries = 3;
     Poco::LocalDateTime now;
     std::string dateTimeStr(Poco::DateTimeFormatter::format(now, "%Y-%n-%e%%20%H:%M:%S"));
 
     const std::string uri_link= "http://" + cameraServerIP + "/cgi-bin/global.cgi?action=setCurrentTime&time=" + dateTimeStr;
+    std::ostringstream msgReq;
+    msgReq << __func__ << " : Get " << uri_link;
+    AppLogger::getInstance()->FnLog(msgReq.str());
 
     try
     {
@@ -568,21 +495,39 @@ bool Camera::FnSetCurrentTime()
         Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET, path, Poco::Net::HTTPMessage::HTTP_1_1);
         Poco::Net::HTTPResponse response;
 
-        if (!do_setCurrentTime(session, request, response))
+        do
         {
-            credentials.authenticate(request, response);
             if (!do_setCurrentTime(session, request, response))
             {
-                AppLogger::getInstance()->FnLog("Invalid username or password");
-                return false;
+                credentials.authenticate(request, response);
+                if (!do_setCurrentTime(session, request, response))
+                {
+                    AppLogger::getInstance()->FnLog("Authentication : Failed, Invalid username or password");
+                    retry++;
+                }
+                else
+                {
+                    std::ostringstream msgSuccess;
+                    msgSuccess << "Get " << uri_link << " : Succeed";
+                    AppLogger::getInstance()->FnLog(msgSuccess.str());
+                    ret = true;
+                    break;
+                }
             }
-        }
+            else
+            {
+                std::ostringstream msgFail;
+                msgFail << "GET " << uri_link << " : Failed, Retries = " << retry;
+                AppLogger::getInstance()->FnLog(msgFail.str());
+                retry++;
+            }
+
+        } while(retry <= maxRetries);
     }
     catch (Poco::Exception& ex)
     {
         AppLogger::getInstance()->FnLog(ex.displayText());
-        return false;
     }
 
-    return true;
+    return ret;
 }

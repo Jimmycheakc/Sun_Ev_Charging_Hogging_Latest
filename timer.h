@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <memory>
+#include "database.h"
 #include "Poco/Timer.h"
 #include "Poco/Thread.h"
 
@@ -20,6 +21,11 @@ public:
     void FnStopThirdParkingLotFilterTimer();
     bool FnIsThirdParkingLotFilterTimerRunning();
 
+    void FnStartCameraHeartbeatSendToCentralTimer();
+    void FnRestartCameraHeartbeatSendToCentralTimer();
+    void FnStopCameraHeartbeatSendToCentralTimer();
+    bool FnIsCameraHeartbeatSendToCentralTimerRunning();
+
     EvtTimer(EvtTimer& evtTimer) = delete;
 
     void operator=(const EvtTimer&) = delete;
@@ -36,8 +42,11 @@ private:
     std::unique_ptr<Poco::Timer> pThirdParkingLotFilterTimer_;
     Database::parking_lot_t storedThirdParkingLotInfo_;
     bool isThirdParkingLotFilterTimerRunning_;
+    std::unique_ptr<Poco::Timer> pCameraHeartbeatSendToCentralTimer_;
+    bool isCameraHeartbeatSendToCentralTimerRunning_;
     EvtTimer();
     void onFirstParkingLotFilterTimerTimeout(Poco::Timer& timer);
     void onSecondParkingLotFilterTimerTimeout(Poco::Timer& timer);
     void onThirdParkingLotFilterTimerTimeout(Poco::Timer& timer);
+    void onCameraHeartbeatSendToCentralTimerTimeout(Poco::Timer& timer);
 };
