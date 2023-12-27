@@ -28,16 +28,20 @@
 #include "timer.h"
 
 Camera* Camera::camera_ = nullptr;
+Poco::Mutex Camera::singletonCameraMutex_;
 
 Camera::Camera()
 {
-    heartbeatStartUpDetectFlag_ = false;
+    cameraRecoveryFlag_ = false;
     cameraServerIP = Iniparser::getInstance()->FnGetCameraIP();
     createImageDirectory();
 }
 
 Camera* Camera::getInstance()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(singletonCameraMutex_);
+
     if (camera_ == nullptr)
     {
         camera_ = new Camera();
@@ -48,6 +52,9 @@ Camera* Camera::getInstance()
 
 void Camera::createImageDirectory()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(cameraMutex_);
+
     AppLogger::getInstance()->FnLog("Creating image directory.");
     Poco::File imageDirectory(imageDirectoryPath);
 
@@ -70,8 +77,102 @@ void Camera::createImageDirectory()
 
 bool Camera::isImageDirectoryExists()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(cameraMutex_);
+
     Poco::File imageDirectory(imageDirectoryPath);
     return imageDirectory.exists();
+}
+
+bool Camera::do_heartBeatRequest(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response)
+{
+    AppLogger::getInstance()->FnLog(request.getURI());
+
+    session.sendRequest(request);
+    std::istream& rs = session.receiveResponse(response);
+
+    // Log the response header
+    std::ostringstream msg;
+    msg << "Status : " << response.getStatus() << " Reason : " << response.getReason();
+    AppLogger::getInstance()->FnLog(msg.str());
+
+    if (response.getStatus() != Poco::Net::HTTPResponse::HTTP_UNAUTHORIZED)
+    {
+        std::ostringstream responseStream;
+        Poco::StreamCopier::copyStream(rs, responseStream);
+        AppLogger::getInstance()->FnLog(responseStream.str());
+
+        return true;
+    }
+    else
+    {
+        Poco::NullOutputStream null;
+        Poco::StreamCopier::copyStream(rs, null);
+        return false;
+    }
+}
+
+bool Camera::FnGetHeartBeat()
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(cameraMutex_);
+
+    bool ret = false;
+    int retry = 0;
+    int maxRetries = 3;
+    const std::string uri_link= "http://" + cameraServerIP + "/cgi-bin/trafficParking.cgi?action=getAllParkingSpaceStatus";
+
+    std::ostringstream msgReq;
+    msgReq << __func__ << " : Get " << uri_link;
+    AppLogger::getInstance()->FnLog(msgReq.str());
+
+    try
+    {
+        Poco::URI uri(uri_link);
+        std::string path(uri.getPathAndQuery());
+        if (path.empty())
+        {
+            path = "/";
+        }
+        Poco::Net::HTTPDigestCredentials credentials(username, password);
+        Poco::Net::HTTPClientSession session(uri.getHost(), uri.getPort());
+        Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_GET, path, Poco::Net::HTTPMessage::HTTP_1_1);
+        Poco::Net::HTTPResponse response;
+
+        do
+        {
+            if (!do_heartBeatRequest(session, request, response))
+            {
+                credentials.authenticate(request, response);
+                if (!do_heartBeatRequest(session, request, response))
+                {
+                    AppLogger::getInstance()->FnLog("Authentication : Failed, Invalid username or password");
+                    retry++;
+                }
+                else
+                {
+                    std::ostringstream msgSuccess;
+                    msgSuccess << "Get " << uri_link << " : Succeed";
+                    AppLogger::getInstance()->FnLog(msgSuccess.str());
+                    ret = true;
+                    break;
+                }
+            }
+            else
+            {
+                std::ostringstream msgFail;
+                msgFail << "Get " << uri_link << " : Failed, Retries = " << retry;
+                AppLogger::getInstance()->FnLog(msgFail.str());
+                retry++;
+            }
+        } while (retry <= maxRetries);
+    }
+    catch (Poco::Exception& ex)
+    {
+        AppLogger::getInstance()->FnLog(ex.displayText());
+    }
+
+    return ret;
 }
 
 bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response)
@@ -93,8 +194,7 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
         Poco::Net::MessageHeader::splitParameters(contentType.begin(), contentType.end(), params);
         boundary = params.get("boundary", "");
         Poco::Net::MultipartReader reader(rs, boundary);
-        event_t event;
-        memset(&event, 0 , sizeof(event));
+        event_t event = {};
 
         while (reader.hasNextPart())
         {
@@ -113,22 +213,12 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                     Poco::StreamCopier::copyToString(reader.stream(), partData, contentLength);
                     std::istringstream partStream(partData);
                     std::string line;
-                    memset(&event, 0 , sizeof(event));
+                    event = {};
 
                     while (std::getline(partStream, line))
                     {
                         if (line.find("Heartbeat") != std::string::npos)
                         {
-                            if (heartbeatStartUpDetectFlag_ == false)
-                            {
-                                EvtTimer::getInstance()->FnStartCameraHeartbeatSendToCentralTimer();
-                                Central::getInstance()->FnSendHeartBeatUpdate();
-                                heartbeatStartUpDetectFlag_ = true;
-                            }
-                            else
-                            {
-                                EvtTimer::getInstance()->FnRestartCameraHeartbeatSendToCentralTimer();
-                            }
                             AppLogger::getInstance()->FnLog(line);
                         }
                         else if (line.find("].Channel") != std::string::npos)
@@ -245,7 +335,8 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                             db_parking_lot.lot_out_central_sent_dt = "";
 
                             AppLogger::getInstance()->FnLog("Trigger park out event.");
-                            ParkingEventManager::getInstance()->FnTriggerParkOutEvent(db_parking_lot);
+                            ParkingLotOut_DBEvent* parkingLotOut_DBEvent = new ParkingLotOut_DBEvent(db_parking_lot);
+                            EventManager::getInstance()->FnEnqueueEvent(parkingLotOut_DBEvent);
 
                         }
                         else if (event.evt_type.compare("TrafficParkingSpaceParking") == 0)
@@ -264,7 +355,8 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                             db_parking_lot.lot_out_central_sent_dt = "";
 
                             AppLogger::getInstance()->FnLog("Trigger park in event.");
-                            ParkingEventManager::getInstance()->FnTriggerParkInEvent(db_parking_lot);
+                            ParkingLotIn_DBEvent* parkingLotIn_DBEvent = new ParkingLotIn_DBEvent(db_parking_lot);
+                            EventManager::getInstance()->FnEnqueueEvent(parkingLotIn_DBEvent);
                         }
 
                     }
@@ -289,6 +381,10 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
 
 bool Camera::FnSubscribeToSnapShot()
 {
+    // Take note: Cannot use mutex here, as its function is blocking function
+    // Local scope lock
+    //Poco::Mutex::ScopedLock lock(cameraMutex_);
+
     bool ret = false;
     int retry = 0;
     int maxRetries = 3;
@@ -377,6 +473,9 @@ bool Camera::do_getCurrentTime(Poco::Net::HTTPClientSession& session, Poco::Net:
 
 bool Camera::FnGetCurrentTime(std::string& dateTime)
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(cameraMutex_);
+
     bool ret = false;
     int retry = 0;
     int maxRetries = 3;
@@ -471,6 +570,9 @@ bool Camera::do_setCurrentTime(Poco::Net::HTTPClientSession& session, Poco::Net:
 
 bool Camera::FnSetCurrentTime()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(cameraMutex_);
+
     bool ret = false;
     int retry = 0;
     int maxRetries = 3;
@@ -530,4 +632,17 @@ bool Camera::FnSetCurrentTime()
     }
 
     return ret;
+}
+
+void Camera::FnSetCameraRecoveryFlag(bool flag)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(cameraMutex_);
+
+    cameraRecoveryFlag_ = flag;
+}
+
+bool Camera::FnGetCameraRecoveryFlag()
+{
+    return cameraRecoveryFlag_;
 }

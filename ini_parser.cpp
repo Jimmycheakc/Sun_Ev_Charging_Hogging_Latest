@@ -5,6 +5,7 @@
 #include "Poco/Util/IniFileConfiguration.h"
 
 Iniparser* Iniparser::iniparser_ = nullptr;
+Poco::Mutex Iniparser::singletonIniParserMutex_;
 
 Iniparser::Iniparser()
 {
@@ -14,6 +15,9 @@ Iniparser::Iniparser()
 
 Iniparser* Iniparser::getInstance()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(singletonIniParserMutex_);
+
     if (iniparser_ == nullptr)
     {
         iniparser_ = new Iniparser();
@@ -35,6 +39,9 @@ void Iniparser::FnIniParserInit()
         centralIP_ = pConf_->getString("setting.central_ip");
         centralServerPort_ = pConf_->getInt("setting.central_server_port");
         timerTimeoutForCameraHeartbeatSendToCentral_ = pConf_->getInt("setting.timer_timeout_for_camera_heartbeat_send_to_central");
+        timerForCameraTimeSync_ = pConf_->getInt("setting.timer_for_camera_time_sync");
+        timerTimeoutForDeviceStatusUpdateToCentral_ = pConf_->getInt("setting.timer_timeout_for_device_status_update_to_central");
+        timerCentralHeartBeat_ = pConf_->getInt("setting.timer_central_heartbeat");
     }
     catch (Poco::Exception& ex)
     {
@@ -70,4 +77,19 @@ int Iniparser::FnGetCentralServerPort()
 int Iniparser::FnGetTimerTimeoutForCameraHeartbeatSendToCentral()
 {
     return timerTimeoutForCameraHeartbeatSendToCentral_;
+}
+
+int Iniparser::FnGetTimerForCameraTimeSync()
+{
+    return timerForCameraTimeSync_;
+}
+
+int Iniparser::FnGetTimerTimeoutForDeviceStatusUpdateToCentral()
+{
+    return timerTimeoutForDeviceStatusUpdateToCentral_;
+}
+
+int Iniparser::FnGetTimerCentralHeartBeat()
+{
+    return timerCentralHeartBeat_;
 }

@@ -34,6 +34,12 @@ public:
 
     static Database* getInstance();
     void FnDatabaseInit();
+    bool FnGetDatabaseStatus();
+    void FnDatabaseReconnect();
+    void FnSetDatabaseRecoveryFlag(bool flag);
+    bool FnGetDatabaseRecoveryFlag();
+
+    // Table --> tbl_ev_lot_trans
     void FnInsertRecord(const std::string& tableName, parking_lot_t lot);
     void FnSelectAllRecord(const std::string& tableName, std::vector<parking_lot_t>& v_lot);
     bool FnIsTableEmpty(const std::string& tableName);
@@ -49,17 +55,23 @@ public:
 
     void FnSendDBParkingLotStatusToCentral(const std::string& tableName);
 
+    // Table --> tbl_ev_lot_status
+    void FnInsertStatusRecord(const std::string& tableName, const std::string& carpark_code, const std::string& device_ip, const std::string& error_code);
+    void FnSendDBDeviceStatusToCentral(const std::string& tableName);
+
     Database(Database& database) = delete;
 
     void operator=(const Database&) = delete;
 
 private:
     static Database* database_;
+    static Poco::Mutex singletonDatabaseMutex_;
     std::unique_ptr<Poco::Data::Session> session_;
     Poco::Mutex databaseMutex_;
     parking_lot_info_t firstParkingLot_;
     parking_lot_info_t secondParkingLot_;
     parking_lot_info_t thirdParkingLot_;
+    bool dbRecoveryFlag_;
     Database();
     ~Database();
 };

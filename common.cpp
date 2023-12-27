@@ -6,16 +6,23 @@
 #include "Poco/Base64Encoder.h"
 #include "Poco/DateTime.h"
 #include "Poco/DateTimeFormatter.h"
+#include "Poco/Net/NetworkInterface.h"
+#include "Poco/Net/IPAddress.h"
 #include "log.h"
 
 Common* Common::common_ = nullptr;
+Poco::Mutex Common::singletonCommonMutex_;
 
 Common::Common()
 {
+    ipAddr_ = "127.0.0.1";
 }
 
 Common* Common::getInstance()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(singletonCommonMutex_);
+
     if (common_ == nullptr)
     {
         common_ = new Common();
@@ -26,6 +33,9 @@ Common* Common::getInstance()
 
 std::string Common::FnFormatDateYYMMDD()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(commonMutex_);
+
     Poco::LocalDateTime now;
     std::string dateTimeStr(Poco::DateTimeFormatter::format(now, "%y%m%d"));
     return dateTimeStr;
@@ -33,6 +43,9 @@ std::string Common::FnFormatDateYYMMDD()
 
 std::string Common::FnFormatDateYYMMDD_HHMMSS()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(commonMutex_);
+
     Poco::LocalDateTime now;
     std::string dateTimeStr(Poco::DateTimeFormatter::format(now, "%y%m%d_%H%M%S"));
     return dateTimeStr;
@@ -40,6 +53,9 @@ std::string Common::FnFormatDateYYMMDD_HHMMSS()
 
 std::string Common::FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(commonMutex_);
+
     Poco::LocalDateTime now;
     std::string dateTimeStr(Poco::DateTimeFormatter::format(now, "%Y-%m-%d %H:%M:%S"));
     return dateTimeStr;
@@ -47,6 +63,9 @@ std::string Common::FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS()
 
 std::string Common::FnConverImageToBase64String(const std::string& imagePath)
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(commonMutex_);
+
     std::ifstream imageFile(imagePath, std::ios::binary | std::ios::ate);
 
     if (!imageFile.is_open())
@@ -78,4 +97,26 @@ std::string Common::FnConverImageToBase64String(const std::string& imagePath)
     encoder.close();
 
     return encoded.str();
+}
+
+void Common::FnRetrieveIpAddressFromNetInterface()
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(commonMutex_);
+
+    try
+    {
+        Poco::Net::NetworkInterface interfaces = Poco::Net::NetworkInterface::forName("eth0", Poco::Net::NetworkInterface::IPv4_ONLY);
+
+        ipAddr_ = interfaces.address().toString();
+    }
+    catch(Poco::Exception& ex)
+    {
+        AppLogger::getInstance()->FnLog(ex.displayText());
+    }
+}
+
+std::string Common::FnGetIpAddress()
+{
+    return ipAddr_;
 }

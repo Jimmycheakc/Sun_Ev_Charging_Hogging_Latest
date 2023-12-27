@@ -15,6 +15,7 @@
 #include "Poco/Mutex.h"
 
 Database* Database::database_ = nullptr;
+Poco::Mutex Database::singletonDatabaseMutex_;
 
 Database::Database()
     : firstParkingLot_{},
@@ -24,6 +25,7 @@ Database::Database()
     firstParkingLot_.start_up_flag = false;
     secondParkingLot_.start_up_flag = false;
     thirdParkingLot_.start_up_flag = false;
+    dbRecoveryFlag_ = false;
 }
 
 Database::~Database()
@@ -33,6 +35,9 @@ Database::~Database()
 
 Database* Database::getInstance()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(singletonDatabaseMutex_);
+
     if (database_ == nullptr)
     {
         database_ = new Database();
@@ -66,6 +71,32 @@ void Database::FnDatabaseInit()
         std::cerr << msg.str();
         AppLogger::getInstance()->FnLog(msg.str());
     }
+}
+
+bool Database::FnGetDatabaseStatus()
+{
+    return session_->isGood();
+}
+
+void Database::FnDatabaseReconnect()
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(databaseMutex_);
+
+    session_->reconnect();
+}
+
+void Database::FnSetDatabaseRecoveryFlag(bool flag)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(databaseMutex_);
+
+    dbRecoveryFlag_ = flag;
+}
+
+bool Database::FnGetDatabaseRecoveryFlag()
+{
+    return dbRecoveryFlag_;
 }
 
 void Database::FnInsertRecord(const std::string& tableName, parking_lot_t lot)
@@ -560,6 +591,119 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
                     std::ostringstream updateMsg;
                     updateMsg << "lot_in_central_sent_dt=" << lot_in_central_sent_dt
                         << ", lot_out_central_sent_dt=" << lot_out_central_sent_dt
+                        << ", id=" << id;
+                    AppLogger::getInstance()->FnLog(updateMsg.str());
+                }
+            } while (recordSet.moveNext());
+        }
+
+    }
+    catch(const Poco::Exception& ex)
+    {
+        std::ostringstream msg;
+        msg << __func__ << " POCO Exception: " << ex.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+    }
+}
+
+void Database::FnInsertStatusRecord(const std::string& tableName, const std::string& carpark_code, const std::string& dev_ip, const std::string& ec)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(databaseMutex_);
+
+    if (!session_->isConnected())
+    {
+        session_->reconnect();
+    }
+
+    try
+    {
+        std::string query = "INSERT INTO " + tableName + " (location_code, device_ip, error_code) VALUES(?, ?, ?)";
+        Poco::Data::Statement insert(*session_);
+
+        Poco::Nullable<std::string> location_code(carpark_code.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(carpark_code));
+        Poco::Nullable<std::string> device_ip(dev_ip.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(dev_ip));
+        Poco::Nullable<std::string> error_code(ec.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(ec));
+
+        insert << query,
+                Poco::Data::Keywords::use(location_code),
+                Poco::Data::Keywords::use(device_ip),
+                Poco::Data::Keywords::use(error_code);
+
+        insert.execute();
+        
+        // Log message
+        std::ostringstream msg;
+        msg << insert.toString();
+        msg << " ==> (" << location_code << ", ";
+        msg << device_ip << ", ";
+        msg << error_code << ")";
+        AppLogger::getInstance()->FnLog(msg.str());
+    }
+    catch(const Poco::Exception& ex)
+    {
+        std::ostringstream msg;
+        msg << __func__ << " POCO Exception: " << ex.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+    }
+}
+
+void Database::FnSendDBDeviceStatusToCentral(const std::string& tableName)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(databaseMutex_);
+
+    if (!session_->isConnected())
+    {
+        session_->reconnect();
+    }
+
+    try
+    {
+        std::string query = "SELECT * FROM " + tableName + " WHERE central_sent_dt IS NULL";
+        Poco::Data::Statement select(*session_);
+        select << query;
+
+        select.execute();
+        AppLogger::getInstance()->FnLog(select.toString());
+
+        Poco::Data::RecordSet recordSet(select);
+        if (recordSet.moveFirst())
+        {
+            do
+            {
+                std::string location_code = recordSet["location_code"].isEmpty() ? "" : recordSet["location_code"].convert<std::string>();
+                std::string device_ip = recordSet["device_ip"].isEmpty() ? "" : recordSet["device_ip"].convert<std::string>();
+                std::string error_code = recordSet["error_code"].isEmpty() ? "NULL" : recordSet["error_code"].convert<std::string>();
+                std::string central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
+
+                // Log the values for each record
+                std::ostringstream selectMsg;
+                selectMsg << "Record: "
+                    << "location_code=" << location_code
+                    << ", device_ip=" << device_ip
+                    << ", error_code=" << error_code
+                    << ", central_sent_dt=" << central_sent_dt;
+                AppLogger::getInstance()->FnLog(selectMsg.str());
+
+                if (Central::getInstance()->FnSendDeviceStatusUpdate(location_code, device_ip, error_code))
+                {
+                    std::string id = recordSet["id"].convert<std::string>();
+
+                    // Update the record in database
+                    std::string updateQuery = "UPDATE " + tableName + " SET central_sent_dt = ? WHERE id = ?";
+                    Poco::Data::Statement update(*session_);
+                    update << updateQuery,
+                            Poco::Data::Keywords::use(central_sent_dt),
+                            Poco::Data::Keywords::use(id);
+
+                    update.execute();
+
+                    AppLogger::getInstance()->FnLog(update.toString());
+                    std::ostringstream updateMsg;
+                    updateMsg << "lot_in_central_sent_dt=" << central_sent_dt
                         << ", id=" << id;
                     AppLogger::getInstance()->FnLog(updateMsg.str());
                 }

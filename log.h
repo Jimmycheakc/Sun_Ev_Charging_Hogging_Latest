@@ -21,7 +21,9 @@ public:
 
 private:
     static AppLogger* logger_;
+    static Poco::Mutex singletonLogMutex_;
     Poco::AutoPtr<Poco::Logger> pocoLogger_;
+    Poco::Mutex logMutex_;
     AppLogger();
     ~AppLogger();
     void createLogFile();

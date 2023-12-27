@@ -9,6 +9,7 @@
 #include "Poco/PatternFormatter.h"
 
 AppLogger* AppLogger::logger_ = nullptr;
+Poco::Mutex AppLogger::singletonLogMutex_;
 
 AppLogger::AppLogger()
 {
@@ -22,6 +23,9 @@ AppLogger::~AppLogger()
 
 AppLogger* AppLogger::getInstance()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(singletonLogMutex_);
+
     if (logger_ == nullptr)
     {
         logger_ = new AppLogger();
@@ -82,6 +86,9 @@ bool AppLogger::isLogFileExists()
 
 void AppLogger::FnLog(const std::string& msg)
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(logMutex_);
+
     if (!isLogFileExists())
     {
         createLogFile();

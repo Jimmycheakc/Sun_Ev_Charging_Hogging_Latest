@@ -21,10 +21,9 @@ public:
     void FnStopThirdParkingLotFilterTimer();
     bool FnIsThirdParkingLotFilterTimerRunning();
 
-    void FnStartCameraHeartbeatSendToCentralTimer();
-    void FnRestartCameraHeartbeatSendToCentralTimer();
-    void FnStopCameraHeartbeatSendToCentralTimer();
-    bool FnIsCameraHeartbeatSendToCentralTimerRunning();
+    void FnStartCameraTimerSyncTimer();
+    void FnStartDeviceStatusUpdateTimer();
+    void FnStartHeartBeatCentralTimer();
 
     EvtTimer(EvtTimer& evtTimer) = delete;
 
@@ -32,6 +31,8 @@ public:
 
 private:
     static EvtTimer* evtTimer_;
+    static Poco::Mutex singletonTimerMutex_;
+    Poco::Mutex timerMutex_;
     int filteringInterval;
     std::unique_ptr<Poco::Timer> pFirstParkingLotFilterTimer_;
     Database::parking_lot_t storedFirstParkingLotInfo_;
@@ -42,11 +43,14 @@ private:
     std::unique_ptr<Poco::Timer> pThirdParkingLotFilterTimer_;
     Database::parking_lot_t storedThirdParkingLotInfo_;
     bool isThirdParkingLotFilterTimerRunning_;
-    std::unique_ptr<Poco::Timer> pCameraHeartbeatSendToCentralTimer_;
-    bool isCameraHeartbeatSendToCentralTimerRunning_;
+    std::unique_ptr<Poco::Timer> pCameraTimeSyncTimer_;
+    std::unique_ptr<Poco::Timer> pDeviceStatusUpdateTimer_;
+    std::unique_ptr<Poco::Timer> pHeartBeatCentralTimer_;
     EvtTimer();
     void onFirstParkingLotFilterTimerTimeout(Poco::Timer& timer);
     void onSecondParkingLotFilterTimerTimeout(Poco::Timer& timer);
     void onThirdParkingLotFilterTimerTimeout(Poco::Timer& timer);
-    void onCameraHeartbeatSendToCentralTimerTimeout(Poco::Timer& timer);
+    void onCameraTimeSyncTimerTimeout(Poco::Timer& timer);
+    void onDeviceStatusUpdateTimerTimeout(Poco::Timer& timer);
+    void onHeartBeatCentralTimerTimeout(Poco::Timer& timer);
 };

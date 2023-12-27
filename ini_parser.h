@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include "Poco/AutoPtr.h"
+#include "Poco/Mutex.h"
 #include "Poco/Util/IniFileConfiguration.h"
 
 class Iniparser{
@@ -16,6 +17,9 @@ public:
     std::string FnGetCentralIP();
     int FnGetCentralServerPort();
     int FnGetTimerTimeoutForCameraHeartbeatSendToCentral();
+    int FnGetTimerForCameraTimeSync();
+    int FnGetTimerTimeoutForDeviceStatusUpdateToCentral();
+    int FnGetTimerCentralHeartBeat();
 
     Iniparser(Iniparser& iniparser) = delete;
 
@@ -23,6 +27,7 @@ public:
 
 private:
     static Iniparser* iniparser_;
+    static Poco::Mutex singletonIniParserMutex_;
     Poco::AutoPtr<Poco::Util::IniFileConfiguration> pConf_;
     std::string parkingLotLocationCode_;
     int timerForFilteringSnapShot_;
@@ -30,5 +35,8 @@ private:
     std::string centralIP_;
     int centralServerPort_;
     int timerTimeoutForCameraHeartbeatSendToCentral_;
+    int timerForCameraTimeSync_;
+    int timerTimeoutForDeviceStatusUpdateToCentral_;
+    int timerCentralHeartBeat_;
     Iniparser();
 };

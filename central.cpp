@@ -19,6 +19,7 @@
 #include "Poco/NullStream.h"
 
 Central* Central::central_ = nullptr;
+Poco::Mutex Central::singletonCentralMutex_;
 const std::string Central::ERROR_CODE_RECOVERED = "0";
 const std::string Central::ERROR_CODE_CAMERA = "1";
 const std::string Central::ERROR_CODE_IPC = "2";
@@ -27,10 +28,14 @@ Central::Central()
 {
     centralServerIp = Iniparser::getInstance()->FnGetCentralIP();
     centralServerPort = Iniparser::getInstance()->FnGetCentralServerPort();
+    centralStatus_ = false;
 }
 
 Central* Central::getInstance()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(singletonCentralMutex_);
+
     if (central_ == nullptr)
     {
         central_ = new Central();
@@ -86,6 +91,9 @@ bool Central::doSendHeartBeatUpdate(Poco::Net::HTTPClientSession& session, Poco:
 
 bool Central::FnSendHeartBeatUpdate()
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(centralMutex_);
+
     const std::string uri_link = "http://" + centralServerIp;
     bool ret = false;
 
@@ -136,7 +144,7 @@ bool Central::FnSendHeartBeatUpdate()
     return ret;
 }
 
-bool Central::doSendDeviceStatusUpdate(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response, const std::string& deviceIP, const std::string& ec)
+bool Central::doSendDeviceStatusUpdate(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response, const std::string& location_code, const std::string& deviceIP, const std::string& ec)
 {
     AppLogger ::getInstance()->FnLog(request.getURI());
 
@@ -145,7 +153,7 @@ bool Central::doSendDeviceStatusUpdate(Poco::Net::HTTPClientSession& session, Po
     Poco::JSON::Object::Ptr jsonObject = new Poco::JSON::Object;
     jsonObject->set("username", username);
     jsonObject->set("password", password);
-    jsonObject->set("carpark_code", Iniparser::getInstance()->FnGetParkingLotLocationCode());
+    jsonObject->set("carpark_code", location_code);
     jsonObject->set("device_ip", deviceIP);
     jsonObject->set("error_code", ec);
     
@@ -182,8 +190,19 @@ bool Central::doSendDeviceStatusUpdate(Poco::Net::HTTPClientSession& session, Po
     }
 }
 
-bool Central::FnSendDeviceStatusUpdate(const std::string& deviceIP, const std::string& ec)
+bool Central::FnSendDeviceStatusUpdate(const std::string& location_code, const std::string& deviceIP, const std::string& ec)
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(centralMutex_);
+
+    if (!centralStatus_)
+    {
+        std::ostringstream msgFail;
+        msgFail << __func__ << " Failed, Central Status : " << centralStatus_;
+        AppLogger::getInstance()->FnLog(msgFail.str());
+        return false;
+    }
+
     const std::string uri_link = "http://" + centralServerIp;
     bool ret = false;
 
@@ -202,13 +221,13 @@ bool Central::FnSendDeviceStatusUpdate(const std::string& deviceIP, const std::s
 
         int retry = 0;
         
-        if (!doSendDeviceStatusUpdate(session, request, response, deviceIP, ec))
+        if (!doSendDeviceStatusUpdate(session, request, response, location_code, deviceIP, ec))
         {
             retry = 3;
 
             while (retry > 0)
             {
-                if (doSendDeviceStatusUpdate(session, request, response, deviceIP, ec))
+                if (doSendDeviceStatusUpdate(session, request, response, location_code, deviceIP, ec))
                 {
                     ret = true;
                     break;
@@ -299,6 +318,17 @@ bool Central::FnSendParkInParkOutInfo(const std::string& lot_no,
                                 const std::string& lot_in_time,
                                 const std::string& lot_out_time)
 {
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(centralMutex_);
+
+    if (!centralStatus_)
+    {
+        std::ostringstream msgFail;
+        msgFail << __func__ << " Failed, Central Status : " << centralStatus_;
+        AppLogger::getInstance()->FnLog(msgFail.str());
+        return false;
+    }
+
     const std::string uri_link = "http://" + centralServerIp;
     bool ret = false;
 
@@ -347,4 +377,17 @@ bool Central::FnSendParkInParkOutInfo(const std::string& lot_no,
     }
     
     return ret;
+}
+
+void Central::FnSetCentralStatus(bool status)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(centralMutex_);
+
+    centralStatus_ = status;
+}
+
+bool Central::FnGetCentralStatus()
+{
+    return centralStatus_;
 }

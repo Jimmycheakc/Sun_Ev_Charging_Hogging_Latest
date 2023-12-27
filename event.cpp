@@ -1,38 +1,102 @@
 #include <iostream>
+#include <sstream>
+#include "central.h"
 #include "event.h"
+#include "log.h"
 #include "timer.h"
 #include "Poco/BasicEvent.h"
 #include "Poco/Delegate.h"
+#include "Poco/RunnableAdapter.h"
 
-ParkingEventManager* ParkingEventManager::parkingEventManager_ = nullptr;
+EventManager* EventManager::eventManager_ = nullptr;
+Poco::Mutex EventManager::singletonEventMutex_;
 
-ParkingEventManager::ParkingEventManager()
+EventManager::EventManager()
+    : eventQueue_(),
+    queueMutex_(),
+    eventThread_(),
+    stopThread_(false)
 {
-    parkInEvent_ += Poco::delegate(this, &ParkingEventManager::handleParkInEvent);
-    parkOutEvent_ += Poco::delegate(this, &ParkingEventManager::handleParkOutEvent);
 }
 
-ParkingEventManager* ParkingEventManager::getInstance()
+EventManager* EventManager::getInstance()
 {
-    if (parkingEventManager_ == nullptr)
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(singletonEventMutex_);
+
+    if (eventManager_ == nullptr)
     {
-        parkingEventManager_ = new ParkingEventManager();
+        eventManager_ = new EventManager();
     }
 
-    return parkingEventManager_;
+    return eventManager_;
 }
 
-void ParkingEventManager::FnTriggerParkInEvent(const Database::parking_lot_t& parkInInfo)
+void EventManager::run()
 {
-    parkInEvent_.notify(this, parkInInfo);
+    while(!stopThread_)
+    {
+        processEventFromQueue();
+        Poco::Thread::sleep(100);
+    }
 }
 
-void ParkingEventManager::FnTriggerParkOutEvent(const Database::parking_lot_t& parkOutInfo)
+void EventManager::FnStartEventThread()
 {
-    parkOutEvent_.notify(this, parkOutInfo);
+    eventThread_.start(*this);
 }
 
-void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkInInfo)
+void EventManager::FnStopEventThread()
+{
+    stopThread_ = true;
+    if (eventThread_.isRunning())
+    {
+        eventThread_.join();
+    }
+}
+
+void EventManager::FnEnqueueEvent(BaseEvent* event)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(queueMutex_);
+    eventQueue_.push(event);
+}
+
+void EventManager::processEventFromQueue()
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(queueMutex_);
+    while(!eventQueue_.empty())
+    {
+        BaseEvent* event = eventQueue_.front();
+        eventQueue_.pop();
+
+        std::ostringstream msg;
+        msg << __func__ << " : " << event->event_name;
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (event->event_name == "ParkingLotIn_DBEvent")
+        {
+            ParkingLotIn_DBEvent* parkingLotIn_DBEventData = dynamic_cast<ParkingLotIn_DBEvent*>(event);
+            if (parkingLotIn_DBEventData)
+            {
+                handleParkInEvent(parkingLotIn_DBEventData->park_lot_event_in_data_);
+            }
+        }
+        else if (event->event_name == "ParkingLotOut_DBEvent")
+        {
+            ParkingLotOut_DBEvent* parkingLotOut_DBEventData = dynamic_cast<ParkingLotOut_DBEvent*>(event);
+            if (parkingLotOut_DBEventData)
+            {
+                handleParkOutEvent(parkingLotOut_DBEventData->park_lot_event_out_data_);
+            }
+        }
+
+        delete event;
+    }
+}
+
+void EventManager::handleParkInEvent(const Database::parking_lot_t& parkInInfo)
 {
     std::cout << __func__ << "parkInInfo.location_code : " << parkInInfo.location_code << std::endl;
     std::cout << __func__ << "parkInInfo.lpn : " << parkInInfo.lpn << std::endl;
@@ -170,7 +234,7 @@ void ParkingEventManager::handleParkInEvent(const Database::parking_lot_t& parkI
     }
 }
 
-void ParkingEventManager::handleParkOutEvent(const Database::parking_lot_t& parkOutInfo)
+void EventManager::handleParkOutEvent(const Database::parking_lot_t& parkOutInfo)
 {
     std::cout << __func__ << "parkOutInfo.location_code : " << parkOutInfo.location_code << std::endl;
     std::cout << __func__ << "parkOutInfo.lpn : " << parkOutInfo.lpn << std::endl;
