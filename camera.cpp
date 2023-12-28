@@ -33,6 +33,7 @@ Poco::Mutex Camera::singletonCameraMutex_;
 Camera::Camera()
 {
     cameraRecoveryFlag_ = false;
+    cameraStatus_ = false;
     cameraServerIP = Iniparser::getInstance()->FnGetCameraIP();
     createImageDirectory();
 }
@@ -82,6 +83,24 @@ bool Camera::isImageDirectoryExists()
 
     Poco::File imageDirectory(imageDirectoryPath);
     return imageDirectory.exists();
+}
+
+void Camera::FnCameraInit()
+{
+    cameraStatus_ = FnGetHeartBeat();
+}
+
+void Camera::FnSetCameraStatus(bool status)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(cameraMutex_);
+
+    cameraStatus_ = status;
+}
+
+bool Camera::FnGetCameraStatus()
+{
+    return cameraStatus_;
 }
 
 bool Camera::do_heartBeatRequest(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response)
@@ -219,6 +238,8 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                     {
                         if (line.find("Heartbeat") != std::string::npos)
                         {
+                            Camera::getInstance()->FnSetCameraStatus(true);
+                            EvtTimer::getInstance()->FnRestartCameraHeartbeatTimer();
                             AppLogger::getInstance()->FnLog(line);
                         }
                         else if (line.find("].Channel") != std::string::npos)

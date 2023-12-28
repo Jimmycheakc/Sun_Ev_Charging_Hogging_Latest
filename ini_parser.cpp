@@ -38,7 +38,7 @@ void Iniparser::FnIniParserInit()
         cameraIP_ = pConf_->getString("setting.camera_ip");
         centralIP_ = pConf_->getString("setting.central_ip");
         centralServerPort_ = pConf_->getInt("setting.central_server_port");
-        timerTimeoutForCameraHeartbeatSendToCentral_ = pConf_->getInt("setting.timer_timeout_for_camera_heartbeat_send_to_central");
+        timerTimeoutForCameraHeartbeat_ = pConf_->getInt("setting.timer_timeout_for_camera_heartbeat");
         timerForCameraTimeSync_ = pConf_->getInt("setting.timer_for_camera_time_sync");
         timerTimeoutForDeviceStatusUpdateToCentral_ = pConf_->getInt("setting.timer_timeout_for_device_status_update_to_central");
         timerCentralHeartBeat_ = pConf_->getInt("setting.timer_central_heartbeat");
@@ -74,9 +74,9 @@ int Iniparser::FnGetCentralServerPort()
     return centralServerPort_;
 }
 
-int Iniparser::FnGetTimerTimeoutForCameraHeartbeatSendToCentral()
+int Iniparser::FnGetTimerTimeoutForCameraHeartbeat()
 {
-    return timerTimeoutForCameraHeartbeatSendToCentral_;
+    return timerTimeoutForCameraHeartbeat_;
 }
 
 int Iniparser::FnGetTimerForCameraTimeSync()

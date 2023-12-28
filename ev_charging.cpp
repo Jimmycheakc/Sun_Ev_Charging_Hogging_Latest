@@ -11,10 +11,6 @@
 #include "log.h"
 #include "timer.h"
 
-#include <iostream>
-#include <Poco/Net/NetworkInterface.h>
-#include <Poco/Net/IPAddress.h>
-
 int main(int argc, char* agrv[])
 {
     std::ostringstream info;
@@ -23,12 +19,17 @@ int main(int argc, char* agrv[])
 
     Iniparser::getInstance()->FnIniParserInit();
     Database::getInstance()->FnDatabaseInit();
+    Camera::getInstance()->FnCameraInit();
     Common::getInstance()->FnRetrieveIpAddressFromNetInterface();
     EventManager::getInstance()->FnStartEventThread();
     EvtTimer::getInstance()->FnStartHeartBeatCentralTimer();
     EvtTimer::getInstance()->FnStartCameraTimerSyncTimer();
     EvtTimer::getInstance()->FnStartDeviceStatusUpdateTimer();
-    Camera::getInstance()->FnSubscribeToSnapShot();
+
+    while(true)
+    {
+        Camera::getInstance()->FnSubscribeToSnapShot();
+    }
 
     EventManager::getInstance()->FnStopEventThread();
 

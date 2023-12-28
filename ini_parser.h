@@ -16,7 +16,7 @@ public:
     std::string FnGetCameraIP();
     std::string FnGetCentralIP();
     int FnGetCentralServerPort();
-    int FnGetTimerTimeoutForCameraHeartbeatSendToCentral();
+    int FnGetTimerTimeoutForCameraHeartbeat();
     int FnGetTimerForCameraTimeSync();
     int FnGetTimerTimeoutForDeviceStatusUpdateToCentral();
     int FnGetTimerCentralHeartBeat();
@@ -34,7 +34,7 @@ private:
     std::string cameraIP_;
     std::string centralIP_;
     int centralServerPort_;
-    int timerTimeoutForCameraHeartbeatSendToCentral_;
+    int timerTimeoutForCameraHeartbeat_;
     int timerForCameraTimeSync_;
     int timerTimeoutForDeviceStatusUpdateToCentral_;
     int timerCentralHeartBeat_;

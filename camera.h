@@ -27,6 +27,9 @@ public:
     const std::string imageDirectoryPath = Poco::Path::home() + "Desktop/Ev_Charging_Hogging_Image";
 
     static Camera* getInstance();
+    void FnCameraInit();
+    void FnSetCameraStatus(bool status);
+    bool FnGetCameraStatus();
     bool FnGetHeartBeat();
     bool FnSubscribeToSnapShot();
     bool FnSetCurrentTime();
@@ -44,6 +47,7 @@ private:
     std::string cameraServerIP;
     Poco::Mutex cameraMutex_;
     bool cameraRecoveryFlag_;
+    bool cameraStatus_;
     Camera();
     void createImageDirectory();
     bool isImageDirectoryExists();

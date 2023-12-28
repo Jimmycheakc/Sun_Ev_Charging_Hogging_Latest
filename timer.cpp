@@ -25,6 +25,7 @@ EvtTimer::EvtTimer()
     isFirstParkingLotFilterTimerRunning_ = false;
     isSecondParkingLotFilterTimerRunning_ = false;
     isThirdParkingLotFilterTimerRunning_ = false;
+    isCameraHeartbeatTimerRunning_ = false;
 }
 
 EvtTimer* EvtTimer::getInstance()
@@ -223,7 +224,7 @@ void EvtTimer::onDeviceStatusUpdateTimerTimeout(Poco::Timer& timer)
 
     if (!Database::getInstance()->FnGetDatabaseStatus())
     {
-        if (!Camera::getInstance()->FnGetHeartBeat())
+        if (!Camera::getInstance()->FnGetCameraStatus())
         {
             AppLogger::getInstance()->FnLog("Database status : Bad, Camera status : Bad, Error code : ERROR_CODE_CAMERA");
             Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Iniparser::getInstance()->FnGetCameraIP(), Central::ERROR_CODE_CAMERA);
@@ -246,7 +247,7 @@ void EvtTimer::onDeviceStatusUpdateTimerTimeout(Poco::Timer& timer)
             Database::getInstance()->FnSendDBDeviceStatusToCentral("tbl_ev_lot_status");
         }
 
-        if (!Camera::getInstance()->FnGetHeartBeat())
+        if (!Camera::getInstance()->FnGetCameraStatus())
         {
             AppLogger::getInstance()->FnLog("Database status : OK, Camera status : Bad, Error code : ERROR_CODE_CAMERA");
             Database::getInstance()->FnInsertStatusRecord("tbl_ev_lot_status", Iniparser::getInstance()->FnGetParkingLotLocationCode(), Iniparser::getInstance()->FnGetCameraIP(), Central::ERROR_CODE_CAMERA);
@@ -307,4 +308,57 @@ void EvtTimer::FnStartHeartBeatCentralTimer()
 
     // Register Timer Callback
     pHeartBeatCentralTimer_->start(Poco::TimerCallback<EvtTimer>(*this, &EvtTimer::onHeartBeatCentralTimerTimeout));
+}
+
+void EvtTimer::onCameraHeartbeatTimerTimeout(Poco::Timer& timer)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(timerMutex_);
+
+    AppLogger::getInstance()->FnLog(__func__);
+
+    Camera::getInstance()->FnSetCameraStatus(false);
+    isCameraHeartbeatTimerRunning_ = false;
+}
+
+void EvtTimer::FnStartCameraHeartbeatTimer()
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(timerMutex_);
+
+    int heartbeatTimer = Iniparser::getInstance()->FnGetTimerTimeoutForCameraHeartbeat() * 1000 * 60;
+    std::ostringstream msg;
+    msg << __func__ << " , Timer : " << heartbeatTimer;
+    AppLogger::getInstance()->FnLog(msg.str());
+
+    pCameraHeartbeatTimer_ = std::make_unique<Poco::Timer>(heartbeatTimer, 0);
+
+    // Register Timer Callback
+    pCameraHeartbeatTimer_->start(Poco::TimerCallback<EvtTimer>(*this, &EvtTimer::onCameraHeartbeatTimerTimeout));
+    isCameraHeartbeatTimerRunning_ = true;
+}
+
+void EvtTimer::FnRestartCameraHeartbeatTimer()
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(timerMutex_);
+
+    AppLogger::getInstance()->FnLog(__func__);
+
+    if (FnIsCameraHeartbeatTimerRunning())
+    {
+        FnStopCameraHeartbeatTimer();
+    }
+    FnStartCameraHeartbeatTimer();
+}
+
+bool EvtTimer::FnIsCameraHeartbeatTimerRunning()
+{
+    return isCameraHeartbeatTimerRunning_;
+}
+
+void EvtTimer::FnStopCameraHeartbeatTimer()
+{
+    pCameraHeartbeatTimer_->stop();
+    isCameraHeartbeatTimerRunning_ = false;
 }
