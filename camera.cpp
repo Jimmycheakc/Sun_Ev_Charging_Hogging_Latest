@@ -234,13 +234,15 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                     std::string line;
                     event = {};
 
+                    AppLogger::getInstance()->FnLog("Camera Response : text/plain");
+
                     while (std::getline(partStream, line))
                     {
                         if (line.find("Heartbeat") != std::string::npos)
                         {
+                            AppLogger::getInstance()->FnLog(line);
                             Camera::getInstance()->FnSetCameraStatus(true);
                             EvtTimer::getInstance()->FnRestartCameraHeartbeatTimer();
-                            AppLogger::getInstance()->FnLog(line);
                         }
                         else if (line.find("].Channel") != std::string::npos)
                         {
@@ -302,7 +304,7 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                 {
                     try
                     {
-                        AppLogger::getInstance()->FnLog("Saving image.");
+                        AppLogger::getInstance()->FnLog("Camera Response : image/jpeg");
                         // Save the image
                         std::string absImagePath;
                         std::string dateTimeImageTime;

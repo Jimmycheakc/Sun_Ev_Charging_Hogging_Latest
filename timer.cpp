@@ -252,6 +252,7 @@ void EvtTimer::onDeviceStatusUpdateTimerTimeout(Poco::Timer& timer)
             AppLogger::getInstance()->FnLog("Database status : OK, Camera status : Bad, Error code : ERROR_CODE_CAMERA");
             Database::getInstance()->FnInsertStatusRecord("tbl_ev_lot_status", Iniparser::getInstance()->FnGetParkingLotLocationCode(), Iniparser::getInstance()->FnGetCameraIP(), Central::ERROR_CODE_CAMERA);
             Database::getInstance()->FnSendDBDeviceStatusToCentral("tbl_ev_lot_status");
+            Camera::getInstance()->FnSetCameraRecoveryFlag(true);
         }
         else
         {

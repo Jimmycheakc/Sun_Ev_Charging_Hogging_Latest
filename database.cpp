@@ -111,6 +111,8 @@ void Database::FnInsertRecord(const std::string& tableName, parking_lot_t lot)
     // Local scope lock
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
+    AppLogger::getInstance()->FnLog(__func__);
+
     if (!session_->isConnected())
     {
         session_->reconnect();
@@ -179,6 +181,8 @@ void Database::FnSelectAllRecord(const std::string& tableName, std::vector<parki
     // Local scope lock
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
+    AppLogger::getInstance()->FnLog(__func__);
+
     if (!session_->isConnected())
     {
         session_->reconnect();
@@ -216,6 +220,7 @@ void Database::FnSelectAllRecord(const std::string& tableName, std::vector<parki
                 v_lot.push_back(lot);
 
                 // Log the values for each record
+                /*
                 std::ostringstream msg;
                 msg << "Record: "
                     << "location_code=" << lot.location_code
@@ -230,6 +235,7 @@ void Database::FnSelectAllRecord(const std::string& tableName, std::vector<parki
                     << ", lot_in_central_sent_dt=" << lot.lot_in_central_sent_dt
                     << ", lot_out_central_sent_dt=" << lot.lot_out_central_sent_dt;
                 AppLogger::getInstance()->FnLog(msg.str());
+                */
             } while (recordSet.moveNext());
         }
 
@@ -247,6 +253,8 @@ bool Database::FnIsTableEmpty(const std::string& tableName)
 {
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
+    AppLogger::getInstance()->FnLog(__func__);
+
     if (!session_->isConnected())
     {
         session_->reconnect();
@@ -259,7 +267,7 @@ bool Database::FnIsTableEmpty(const std::string& tableName)
         select << query;
 
         select.execute();
-        AppLogger::getInstance()->FnLog(select.toString());
+        //AppLogger::getInstance()->FnLog(select.toString());
 
         Poco::Data::RecordSet recordSet(select);
         
@@ -289,6 +297,8 @@ void Database::FnRemoveAllRecord(const std::string& tableName)
     // Local scope lock
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
+    AppLogger::getInstance()->FnLog(__func__);
+
     if (!session_->isConnected())
     {
         session_->reconnect();
@@ -301,7 +311,7 @@ void Database::FnRemoveAllRecord(const std::string& tableName)
         remove << query;
 
         remove.execute();
-        AppLogger::getInstance()->FnLog(remove.toString());
+        //AppLogger::getInstance()->FnLog(remove.toString());
     }
     catch(const Poco::Exception& ex)
     {
@@ -317,6 +327,8 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
     // Local scope lock
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
+    AppLogger::getInstance()->FnLog(__func__);
+
     if (!session_->isConnected())
     {
         session_->reconnect();
@@ -330,7 +342,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         select_first_lot << query_first_lot;
 
         select_first_lot.execute();
-        AppLogger::getInstance()->FnLog(select_first_lot.toString());
+        //AppLogger::getInstance()->FnLog(select_first_lot.toString());
 
         Poco::Data::RecordSet recordSetFirstLot(select_first_lot);
         if (recordSetFirstLot.moveFirst())
@@ -360,7 +372,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
 
             // Log the values for each record
             std::ostringstream firstMsg;
-            firstMsg << "Record: "
+            firstMsg << "Record First Lot : "
                 << "pFirstParkingLot->location_code=" << pFirstParkingLot->location_code
                 << ", pFirstParkingLot->lot_no=" << pFirstParkingLot->lot_no
                 << ", pFirstParkingLot->lpn=" << pFirstParkingLot->lpn
@@ -382,7 +394,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         select_second_lot << query_second_lot;
 
         select_second_lot.execute();
-        AppLogger::getInstance()->FnLog(select_second_lot.toString());
+        //AppLogger::getInstance()->FnLog(select_second_lot.toString());
 
         Poco::Data::RecordSet recordSetSecondLot(select_second_lot);
         if (recordSetSecondLot.moveFirst())
@@ -412,7 +424,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
 
             // Log the values for each record
             std::ostringstream secondMsg;
-            secondMsg << "Record: "
+            secondMsg << "Record Second Lot: "
                 << "pSecondParkingLot->location_code=" << pSecondParkingLot->location_code
                 << ", pSecondParkingLot->lot_no=" << pSecondParkingLot->lot_no
                 << ", pSecondParkingLot->lpn=" << pSecondParkingLot->lpn
@@ -434,7 +446,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
         select_third_lot << query_third_lot;
 
         select_third_lot.execute();
-        AppLogger::getInstance()->FnLog(select_third_lot.toString());
+        //AppLogger::getInstance()->FnLog(select_third_lot.toString());
 
         Poco::Data::RecordSet recordSetThirdLot(select_third_lot);
         if (recordSetThirdLot.moveFirst())
@@ -464,7 +476,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
 
             // Log the values for each record
             std::ostringstream thirdMsg;
-            thirdMsg << "Record: "
+            thirdMsg << "Record Third Lot: "
                 << "pThirdParkingLot->location_code=" << pThirdParkingLot->location_code
                 << ", pThirdParkingLot->lot_no=" << pThirdParkingLot->lot_no
                 << ", pThirdParkingLot->lpn=" << pThirdParkingLot->lpn
@@ -524,6 +536,8 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
     // Local scope lock
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
+    AppLogger::getInstance()->FnLog(__func__);
+
     if (!session_->isConnected())
     {
         session_->reconnect();
@@ -536,7 +550,7 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
         select << query;
 
         select.execute();
-        AppLogger::getInstance()->FnLog(select.toString());
+        //AppLogger::getInstance()->FnLog(select.toString());
 
         Poco::Data::RecordSet recordSet(select);
         if (recordSet.moveFirst())
@@ -619,6 +633,8 @@ void Database::FnInsertStatusRecord(const std::string& tableName, const std::str
     // Local scope lock
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
+    AppLogger::getInstance()->FnLog(__func__);
+
     if (!session_->isConnected())
     {
         session_->reconnect();
@@ -662,6 +678,8 @@ void Database::FnSendDBDeviceStatusToCentral(const std::string& tableName)
     // Local scope lock
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
+    AppLogger::getInstance()->FnLog(__func__);
+
     if (!session_->isConnected())
     {
         session_->reconnect();
@@ -674,7 +692,7 @@ void Database::FnSendDBDeviceStatusToCentral(const std::string& tableName)
         select << query;
 
         select.execute();
-        AppLogger::getInstance()->FnLog(select.toString());
+        //AppLogger::getInstance()->FnLog(select.toString());
 
         Poco::Data::RecordSet recordSet(select);
         if (recordSet.moveFirst())
