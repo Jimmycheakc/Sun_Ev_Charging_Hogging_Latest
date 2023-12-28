@@ -57,11 +57,18 @@ void Database::FnDatabaseInit()
         session_ = std::make_unique<Poco::Data::Session>("MySQL", "host=localhost;user=root;password=yzxh2007;db=ev_charging_hogging_database");
 
         // Temp: Need to remove
-        Database::getInstance()->FnRemoveAllRecord("tbl_ev_lot_trans");
+        //Database::getInstance()->FnRemoveAllRecord("tbl_ev_lot_trans");
+        //Database::getInstance()->FnRemoveAllRecord("tbl_ev_lot_status");
         if (!FnIsTableEmpty("tbl_ev_lot_trans"))
         {
             AppLogger::getInstance()->FnLog("'tbl_ev_lot_trans' database not empty, update 3 parking lots.");
             FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
+        }
+
+        if (!FnIsTableEmpty("tbl_ev_lot_status"))
+        {
+            AppLogger::getInstance()->FnLog("'tbl_ev_lot_status' database not empty, trying send status to central.");
+            FnSendDBDeviceStatusToCentral("tbl_ev_lot_status");
         }
     }
     catch (const Poco::Exception& ex)
