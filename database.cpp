@@ -10,6 +10,7 @@
 #include "Poco/DateTimeFormatter.h"
 #include "Poco/Data/Session.h"
 #include "Poco/Data/MySQL/Connector.h"
+#include "Poco/Data/MySQL/MySQLException.h"
 #include "Poco/Data/Statement.h"
 #include "Poco/Data/RecordSet.h"
 #include "Poco/Mutex.h"
@@ -26,6 +27,7 @@ Database::Database()
     secondParkingLot_.start_up_flag = false;
     thirdParkingLot_.start_up_flag = false;
     dbRecoveryFlag_ = false;
+    databaseStatus_ = false;
 }
 
 Database::~Database()
@@ -70,6 +72,8 @@ void Database::FnDatabaseInit()
             AppLogger::getInstance()->FnLog("'tbl_ev_lot_status' database not empty, trying send status to central.");
             FnSendDBDeviceStatusToCentral("tbl_ev_lot_status");
         }
+
+        FnSetDatabaseStatus((session_->isGood()) ? true : false);
     }
     catch (const Poco::Exception& ex)
     {
@@ -79,10 +83,19 @@ void Database::FnDatabaseInit()
         AppLogger::getInstance()->FnLog(msg.str());
     }
 }
+void Database::FnSetDatabaseStatus(bool status)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(singletonDatabaseMutex_);
+
+    AppLogger::getInstance()->FnLog(__func__);
+
+    databaseStatus_ = status;
+}
 
 bool Database::FnGetDatabaseStatus()
 {
-    return session_->isGood();
+    return databaseStatus_;
 }
 
 void Database::FnDatabaseReconnect()
@@ -90,7 +103,52 @@ void Database::FnDatabaseReconnect()
     // Local scope lock
     Poco::Mutex::ScopedLock lock(databaseMutex_);
 
-    session_->reconnect();
+    AppLogger::getInstance()->FnLog(__func__);
+
+    try
+    {
+        // Uninitialize MySQL connector
+        Poco::Data::MySQL::Connector::unregisterConnector();
+
+        // Initialize MySQL connector
+        Poco::Data::MySQL::Connector::registerConnector();
+
+        session_ = std::make_unique<Poco::Data::Session>("MySQL", "host=localhost;user=root;password=yzxh2007;db=ev_charging_hogging_database");
+
+        if (!FnIsTableEmpty("tbl_ev_lot_trans"))
+        {
+            AppLogger::getInstance()->FnLog("'tbl_ev_lot_trans' database not empty, update 3 parking lots.");
+            FnUpdateThreeLotParkingStatus("tbl_ev_lot_trans");
+        }
+
+        if (!FnIsTableEmpty("tbl_ev_lot_status"))
+        {
+            AppLogger::getInstance()->FnLog("'tbl_ev_lot_status' database not empty, trying send status to central.");
+            FnSendDBDeviceStatusToCentral("tbl_ev_lot_status");
+        }
+
+        FnSetDatabaseStatus((session_->isGood()) ? true : false);
+        AppLogger::getInstance()->FnLog("Database reconnection successful.");
+    }
+    catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception during database reconnection: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
+    }
+    catch (const Poco::Exception& ex)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception during database reconnection: " << ex.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+    }
 }
 
 void Database::FnSetDatabaseRecoveryFlag(bool flag)
@@ -113,9 +171,11 @@ void Database::FnInsertRecord(const std::string& tableName, parking_lot_t lot)
 
     AppLogger::getInstance()->FnLog(__func__);
 
-    if (!session_->isConnected())
+    if (!session_->isGood())
     {
-        session_->reconnect();
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return;
     }
 
     try
@@ -166,6 +226,18 @@ void Database::FnInsertRecord(const std::string& tableName, parking_lot_t lot)
         msg << lot_out_central_sent_dt << ")";
         AppLogger::getInstance()->FnLog(msg.str());
     }
+    catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
+    }
     catch(const Poco::Exception& ex)
     {
         std::ostringstream msg;
@@ -183,9 +255,11 @@ void Database::FnSelectAllRecord(const std::string& tableName, std::vector<parki
 
     AppLogger::getInstance()->FnLog(__func__);
 
-    if (!session_->isConnected())
+    if (!session_->isGood())
     {
-        session_->reconnect();
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return;
     }
 
     try
@@ -240,6 +314,18 @@ void Database::FnSelectAllRecord(const std::string& tableName, std::vector<parki
         }
 
     }
+     catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
+    }
     catch(const Poco::Exception& ex)
     {
         std::ostringstream msg;
@@ -255,9 +341,11 @@ bool Database::FnIsTableEmpty(const std::string& tableName)
 
     AppLogger::getInstance()->FnLog(__func__);
 
-    if (!session_->isConnected())
+    if (!session_->isGood())
     {
-        session_->reconnect();
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return false;
     }
 
     try
@@ -276,6 +364,20 @@ bool Database::FnIsTableEmpty(const std::string& tableName)
             int count;
             count = recordSet["COUNT(*)"].convert<int>();
             return count == 0;
+        }
+
+        return false;
+    }
+     catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
         }
 
         return false;
@@ -299,9 +401,11 @@ void Database::FnRemoveAllRecord(const std::string& tableName)
 
     AppLogger::getInstance()->FnLog(__func__);
 
-    if (!session_->isConnected())
+    if (!session_->isGood())
     {
-        session_->reconnect();
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return;
     }
 
     try
@@ -312,6 +416,18 @@ void Database::FnRemoveAllRecord(const std::string& tableName)
 
         remove.execute();
         //AppLogger::getInstance()->FnLog(remove.toString());
+    }
+    catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
     }
     catch(const Poco::Exception& ex)
     {
@@ -329,9 +445,11 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
 
     AppLogger::getInstance()->FnLog(__func__);
 
-    if (!session_->isConnected())
+    if (!session_->isGood())
     {
-        session_->reconnect();
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return;
     }
 
     try
@@ -492,6 +610,18 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             AppLogger::getInstance()->FnLog(thirdMsg.str());
         }
     }
+    catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
+    }
     catch(const Poco::Exception& ex)
     {
         std::ostringstream msg;
@@ -538,9 +668,11 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
 
     AppLogger::getInstance()->FnLog(__func__);
 
-    if (!session_->isConnected())
+    if (!session_->isGood())
     {
-        session_->reconnect();
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return;
     }
 
     try
@@ -563,19 +695,19 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
                 Poco::Nullable<std::string> lot_out_central_sent_dt = Poco::Nullable<std::string>();
                 std::string lot_no = recordSet["lot_no"].isEmpty() ? "" : recordSet["lot_no"].convert<std::string>();
                 std::string lpn = recordSet["lpn"].isEmpty() ? "" : recordSet["lpn"].convert<std::string>();
-                std::string lot_in_image_path = recordSet["lot_in_image"].isEmpty() ? "NULL" : recordSet["lot_in_image"].convert<std::string>();
-                std::string lot_out_image_path = recordSet["lot_out_image"].isEmpty() ? "NULL" : recordSet["lot_out_image"].convert<std::string>();
+                std::string lot_in_image_path = recordSet["lot_in_image"].isEmpty() ? "" : recordSet["lot_in_image"].convert<std::string>();
+                std::string lot_out_image_path = recordSet["lot_out_image"].isEmpty() ? "" : recordSet["lot_out_image"].convert<std::string>();
                 std::string lot_in_dt = recordSet["lot_in_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSet["lot_in_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
                 std::string lot_out_dt = recordSet["lot_out_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSet["lot_out_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
 
-                if (!(lot_in_image_path.compare("NULL") == 0))
+                if (!(lot_in_image_path.empty()))
                 {
                    lot_in_image = Common::getInstance()->FnConverImageToBase64String(lot_in_image_path);
                    lot_in_central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
 
                 }
 
-                if (!(lot_out_image_path.compare("NULL") == 0))
+                if (!(lot_out_image_path.empty()))
                 {
                     lot_out_image = Common::getInstance()->FnConverImageToBase64String(lot_out_image_path);
                     lot_out_central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
@@ -619,6 +751,18 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
         }
 
     }
+    catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
+    }
     catch(const Poco::Exception& ex)
     {
         std::ostringstream msg;
@@ -635,9 +779,11 @@ void Database::FnInsertStatusRecord(const std::string& tableName, const std::str
 
     AppLogger::getInstance()->FnLog(__func__);
 
-    if (!session_->isConnected())
+    if (!session_->isGood())
     {
-        session_->reconnect();
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return;
     }
 
     try
@@ -664,6 +810,18 @@ void Database::FnInsertStatusRecord(const std::string& tableName, const std::str
         msg << error_code << ")";
         AppLogger::getInstance()->FnLog(msg.str());
     }
+    catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
+    }
     catch(const Poco::Exception& ex)
     {
         std::ostringstream msg;
@@ -680,9 +838,11 @@ void Database::FnSendDBDeviceStatusToCentral(const std::string& tableName)
 
     AppLogger::getInstance()->FnLog(__func__);
 
-    if (!session_->isConnected())
+    if (!session_->isGood())
     {
-        session_->reconnect();
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return;
     }
 
     try
@@ -735,6 +895,18 @@ void Database::FnSendDBDeviceStatusToCentral(const std::string& tableName)
             } while (recordSet.moveNext());
         }
 
+    }
+    catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
     }
     catch(const Poco::Exception& ex)
     {

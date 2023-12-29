@@ -34,6 +34,7 @@ public:
 
     static Database* getInstance();
     void FnDatabaseInit();
+    void FnSetDatabaseStatus(bool status);
     bool FnGetDatabaseStatus();
     void FnDatabaseReconnect();
     void FnSetDatabaseRecoveryFlag(bool flag);
@@ -72,6 +73,7 @@ private:
     parking_lot_info_t secondParkingLot_;
     parking_lot_info_t thirdParkingLot_;
     bool dbRecoveryFlag_;
+    bool databaseStatus_;
     Database();
     ~Database();
 };
