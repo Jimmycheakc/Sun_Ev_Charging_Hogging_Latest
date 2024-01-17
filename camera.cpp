@@ -289,6 +289,15 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                             }
                             AppLogger::getInstance()->FnLog(line);
                         }
+			            else if (line.find("].TrafficCar.CustomParkNo") != std::string::npos)
+                        {
+                            size_t equalSignPos = line.find("=");
+                            if (equalSignPos != std::string::npos)
+                            {
+                                event.evt_lot_no = line.substr(equalSignPos+1, line.length() - equalSignPos - 2);
+                            }
+                            AppLogger::getInstance()->FnLog(line);
+                        }
                         else if (line.find("].TrafficCar.Event") != std::string::npos)
                         {
                             size_t equalSignPos = line.find("=");
@@ -347,6 +356,7 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                             Database::parking_lot_t db_parking_lot;
                             db_parking_lot.location_code = Iniparser::getInstance()->FnGetParkingLotLocationCode();
                             db_parking_lot.lot_no = event.evt_lane;
+                            db_parking_lot.custom_park_lot_no = event.evt_lot_no;
                             db_parking_lot.lpn = event.evt_lpn;
                             db_parking_lot.lot_in_image_path = "";
                             db_parking_lot.lot_out_image_path = absImagePath;
@@ -367,6 +377,7 @@ bool Camera::do_subscribeToSnapShot(Poco::Net::HTTPClientSession& session, Poco:
                             Database::parking_lot_t db_parking_lot;
                             db_parking_lot.location_code = Iniparser::getInstance()->FnGetParkingLotLocationCode();
                             db_parking_lot.lot_no = event.evt_lane;
+                            db_parking_lot.custom_park_lot_no = event.evt_lot_no;
                             db_parking_lot.lpn = event.evt_lpn;
                             db_parking_lot.lot_in_image_path = absImagePath;
                             db_parking_lot.lot_out_image_path = "";

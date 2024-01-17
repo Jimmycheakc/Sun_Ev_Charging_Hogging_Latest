@@ -14,6 +14,7 @@ public:
     {
         std::string location_code;
         std::string lot_no;
+        std::string custom_park_lot_no;
         std::string lpn;
         std::string lot_in_image_path;
         std::string lot_out_image_path;

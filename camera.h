@@ -18,6 +18,7 @@ public:
         std::string evt_channel;
         std::string evt_parking_status;
         std::string evt_lane;
+        std::string evt_lot_no;
         std::string evt_lpn;
         std::string evt_snapshot_time;
     } event_t;

@@ -180,11 +180,12 @@ void Database::FnInsertRecord(const std::string& tableName, parking_lot_t lot)
 
     try
     {
-        std::string query = "INSERT INTO " + tableName + " (location_code, lot_no, lpn, lot_in_image, lot_out_image, lot_in_dt, lot_out_dt, add_dt, update_dt, lot_in_central_sent_dt, lot_out_central_sent_dt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        std::string query = "INSERT INTO " + tableName + " (location_code, lot_no, custom_park_lot_no, lpn, lot_in_image, lot_out_image, lot_in_dt, lot_out_dt, add_dt, update_dt, lot_in_central_sent_dt, lot_out_central_sent_dt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         Poco::Data::Statement insert(*session_);
 
         Poco::Nullable<std::string> location_code(lot.location_code.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(lot.location_code));
         Poco::Nullable<std::string> lot_no(lot.lot_no.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(lot.lot_no));
+        Poco::Nullable<std::string> custom_park_lot_no(lot.custom_park_lot_no.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(lot.custom_park_lot_no));
         Poco::Nullable<std::string> lpn(lot.lpn.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(lot.lpn));
         Poco::Nullable<std::string> lot_in_image_path(lot.lot_in_image_path.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(lot.lot_in_image_path));
         Poco::Nullable<std::string> lot_out_image_path(lot.lot_out_image_path.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(lot.lot_out_image_path));
@@ -198,6 +199,7 @@ void Database::FnInsertRecord(const std::string& tableName, parking_lot_t lot)
         insert << query,
                 Poco::Data::Keywords::use(location_code),
                 Poco::Data::Keywords::use(lot_no),
+                Poco::Data::Keywords::use(custom_park_lot_no),
                 Poco::Data::Keywords::use(lpn),
                 Poco::Data::Keywords::use(lot_in_image_path),
                 Poco::Data::Keywords::use(lot_out_image_path),
@@ -215,6 +217,7 @@ void Database::FnInsertRecord(const std::string& tableName, parking_lot_t lot)
         msg << insert.toString();
         msg << " ==> (" << location_code << ", ";
         msg << lot_no << ", ";
+        msg << custom_park_lot_no << ", ";
         msg << lpn << ", ";
         msg << lot_in_image_path << ", ";
         msg << lot_out_image_path << ", ";
@@ -281,6 +284,7 @@ void Database::FnSelectAllRecord(const std::string& tableName, std::vector<parki
 
                 lot.location_code = recordSet["location_code"].isEmpty() ? "NULL" : recordSet["location_code"].convert<std::string>();
                 lot.lot_no = recordSet["lot_no"].isEmpty() ? "NULL" : recordSet["lot_no"].convert<std::string>();
+                lot.custom_park_lot_no = recordSet["custom_park_lot_no"].isEmpty() ? "NULL" : recordSet["custom_park_lot_no"].convert<std::string>();
                 lot.lpn = recordSet["lpn"].isEmpty() ? "NULL" : recordSet["lpn"].convert<std::string>();
                 lot.lot_in_image_path = recordSet["lot_in_image"].isEmpty() ? "NULL" : recordSet["lot_in_image"].convert<std::string>();
                 lot.lot_out_image_path = recordSet["lot_out_image"].isEmpty() ? "NULL" : recordSet["lot_out_image"].convert<std::string>();
@@ -469,6 +473,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
 
             pFirstParkingLot->location_code = recordSetFirstLot["location_code"].isEmpty() ? "" : recordSetFirstLot["location_code"].convert<std::string>();
             pFirstParkingLot->lot_no = recordSetFirstLot["lot_no"].isEmpty() ? "" : recordSetFirstLot["lot_no"].convert<std::string>();
+            pFirstParkingLot->custom_park_lot_no = recordSetFirstLot["custom_park_lot_no"].isEmpty() ? "" : recordSetFirstLot["custom_park_lot_no"].convert<std::string>();
             pFirstParkingLot->lpn = recordSetFirstLot["lpn"].isEmpty() ? "" : recordSetFirstLot["lpn"].convert<std::string>();
             pFirstParkingLot->lot_in_image_path = recordSetFirstLot["lot_in_image"].isEmpty() ? "" : recordSetFirstLot["lot_in_image"].convert<std::string>();
             pFirstParkingLot->lot_out_image_path = recordSetFirstLot["lot_out_image"].isEmpty() ? "" : recordSetFirstLot["lot_out_image"].convert<std::string>();
@@ -493,6 +498,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             firstMsg << "Record First Lot : "
                 << "pFirstParkingLot->location_code=" << pFirstParkingLot->location_code
                 << ", pFirstParkingLot->lot_no=" << pFirstParkingLot->lot_no
+                << ", pFirstParkingLot->custom_park_lot_no=" << pFirstParkingLot->custom_park_lot_no
                 << ", pFirstParkingLot->lpn=" << pFirstParkingLot->lpn
                 << ", pFirstParkingLot->lot_in_image_path=" << pFirstParkingLot->lot_in_image_path
                 << ", pFirstParkingLot->lot_out_image_path=" << pFirstParkingLot->lot_out_image_path
@@ -521,6 +527,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
 
             pSecondParkingLot->location_code = recordSetSecondLot["location_code"].isEmpty() ? "" : recordSetSecondLot["location_code"].convert<std::string>();
             pSecondParkingLot->lot_no = recordSetSecondLot["lot_no"].isEmpty() ? "" : recordSetSecondLot["lot_no"].convert<std::string>();
+            pSecondParkingLot->custom_park_lot_no = recordSetSecondLot["custom_park_lot_no"].isEmpty() ? "" : recordSetSecondLot["custom_park_lot_no"].convert<std::string>();
             pSecondParkingLot->lpn = recordSetSecondLot["lpn"].isEmpty() ? "" : recordSetSecondLot["lpn"].convert<std::string>();
             pSecondParkingLot->lot_in_image_path = recordSetSecondLot["lot_in_image"].isEmpty() ? "" : recordSetSecondLot["lot_in_image"].convert<std::string>();
             pSecondParkingLot->lot_out_image_path = recordSetSecondLot["lot_out_image"].isEmpty() ? "" : recordSetSecondLot["lot_out_image"].convert<std::string>();
@@ -545,6 +552,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             secondMsg << "Record Second Lot: "
                 << "pSecondParkingLot->location_code=" << pSecondParkingLot->location_code
                 << ", pSecondParkingLot->lot_no=" << pSecondParkingLot->lot_no
+                << ", pSecondParkingLot->custom_park_lot_no=" << pSecondParkingLot->custom_park_lot_no
                 << ", pSecondParkingLot->lpn=" << pSecondParkingLot->lpn
                 << ", pSecondParkingLot->lot_in_image_path=" << pSecondParkingLot->lot_in_image_path
                 << ", pSecondParkingLot->lot_out_image_path=" << pSecondParkingLot->lot_out_image_path
@@ -573,6 +581,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
 
             pThirdParkingLot->location_code = recordSetThirdLot["location_code"].isEmpty() ? "" : recordSetThirdLot["location_code"].convert<std::string>();
             pThirdParkingLot->lot_no = recordSetThirdLot["lot_no"].isEmpty() ? "" : recordSetThirdLot["lot_no"].convert<std::string>();
+            pThirdParkingLot->custom_park_lot_no = recordSetThirdLot["custom_park_lot_no"].isEmpty() ? "" : recordSetThirdLot["custom_park_lot_no"].convert<std::string>();
             pThirdParkingLot->lpn = recordSetThirdLot["lpn"].isEmpty() ? "" : recordSetThirdLot["lpn"].convert<std::string>();
             pThirdParkingLot->lot_in_image_path = recordSetThirdLot["lot_in_image"].isEmpty() ? "" : recordSetThirdLot["lot_in_image"].convert<std::string>();
             pThirdParkingLot->lot_out_image_path = recordSetThirdLot["lot_out_image"].isEmpty() ? "" : recordSetThirdLot["lot_out_image"].convert<std::string>();
@@ -597,6 +606,7 @@ void Database::FnUpdateThreeLotParkingStatus(const std::string& tableName)
             thirdMsg << "Record Third Lot: "
                 << "pThirdParkingLot->location_code=" << pThirdParkingLot->location_code
                 << ", pThirdParkingLot->lot_no=" << pThirdParkingLot->lot_no
+                << ", pThirdParkingLot->custom_park_lot_no=" << pThirdParkingLot->custom_park_lot_no
                 << ", pThirdParkingLot->lpn=" << pThirdParkingLot->lpn
                 << ", pThirdParkingLot->lot_in_image_path=" << pThirdParkingLot->lot_in_image_path
                 << ", pThirdParkingLot->lot_out_image_path=" << pThirdParkingLot->lot_out_image_path
@@ -694,6 +704,7 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
                 Poco::Nullable<std::string> lot_in_central_sent_dt = Poco::Nullable<std::string>();
                 Poco::Nullable<std::string> lot_out_central_sent_dt = Poco::Nullable<std::string>();
                 std::string lot_no = recordSet["lot_no"].isEmpty() ? "" : recordSet["lot_no"].convert<std::string>();
+                std::string custom_park_lot_no = recordSet["custom_park_lot_no"].isEmpty() ? "" : recordSet["custom_park_lot_no"].convert<std::string>();
                 std::string lpn = recordSet["lpn"].isEmpty() ? "" : recordSet["lpn"].convert<std::string>();
                 std::string lot_in_image_path = recordSet["lot_in_image"].isEmpty() ? "" : recordSet["lot_in_image"].convert<std::string>();
                 std::string lot_out_image_path = recordSet["lot_out_image"].isEmpty() ? "" : recordSet["lot_out_image"].convert<std::string>();
@@ -717,6 +728,7 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
                 std::ostringstream selectMsg;
                 selectMsg << "Record: "
                     << "lot_no=" << lot_no
+                    << "lot_no=" << custom_park_lot_no
                     << ", lpn=" << lpn
                     << ", lot_in_image_path=" << lot_in_image_path
                     << ", lot_out_image_path=" << lot_out_image_path
@@ -726,7 +738,7 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
                     << ", lot_out_central_sent_dt=" << lot_out_central_sent_dt;
                 AppLogger::getInstance()->FnLog(selectMsg.str());
 
-                if (Central::getInstance()->FnSendParkInParkOutInfo(lot_no, lpn, lot_in_image, lot_out_image, lot_in_dt, lot_out_dt))
+                if (Central::getInstance()->FnSendParkInParkOutInfo(custom_park_lot_no, lpn, lot_in_image, lot_out_image, lot_in_dt, lot_out_dt))
                 {
                     std::string id = recordSet["id"].convert<std::string>();
 
