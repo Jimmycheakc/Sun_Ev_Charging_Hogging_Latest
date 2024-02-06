@@ -363,3 +363,30 @@ void EvtTimer::FnStopCameraHeartbeatTimer()
     pCameraHeartbeatTimer_->stop();
     isCameraHeartbeatTimerRunning_ = false;
 }
+
+void EvtTimer::onDatabaseReconnectionTimerTimeout(Poco::Timer& timer)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(timerMutex_);
+
+    AppLogger::getInstance()->FnLog(__func__);
+
+    Database::getInstance()->FnDatabaseReconnect();
+}
+
+void EvtTimer::FnStartDatabaseReconnectionTimer()
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(timerMutex_);
+
+    Poco::UInt64 sevenHoursInMillis = 7 * 60 * 60 * 1000;
+
+    std::ostringstream msg;
+    msg << __func__ << " , Timer : " << sevenHoursInMillis;
+    AppLogger::getInstance()->FnLog(msg.str());
+
+    pDatabaseReconnectionTimer_ = std::make_unique<Poco::Timer>(sevenHoursInMillis, sevenHoursInMillis);
+
+    // Register Timer Callback
+    pDatabaseReconnectionTimer_->start(Poco::TimerCallback<EvtTimer>(*this, &EvtTimer::onDatabaseReconnectionTimerTimeout));
+}

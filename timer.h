@@ -30,6 +30,8 @@ public:
     bool FnIsCameraHeartbeatTimerRunning();
     void FnStopCameraHeartbeatTimer();
 
+    void FnStartDatabaseReconnectionTimer();
+
     EvtTimer(EvtTimer& evtTimer) = delete;
 
     void operator=(const EvtTimer&) = delete;
@@ -53,6 +55,7 @@ private:
     std::unique_ptr<Poco::Timer> pHeartBeatCentralTimer_;
     std::unique_ptr<Poco::Timer> pCameraHeartbeatTimer_;
     bool isCameraHeartbeatTimerRunning_;
+    std::unique_ptr<Poco::Timer> pDatabaseReconnectionTimer_;
     EvtTimer();
     void onFirstParkingLotFilterTimerTimeout(Poco::Timer& timer);
     void onSecondParkingLotFilterTimerTimeout(Poco::Timer& timer);
@@ -61,4 +64,5 @@ private:
     void onDeviceStatusUpdateTimerTimeout(Poco::Timer& timer);
     void onHeartBeatCentralTimerTimeout(Poco::Timer& timer);
     void onCameraHeartbeatTimerTimeout(Poco::Timer& timer);
+    void onDatabaseReconnectionTimerTimeout(Poco::Timer& timer);
 };
