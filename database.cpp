@@ -695,7 +695,7 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
         //AppLogger::getInstance()->FnLog(select.toString());
 
         Poco::Data::RecordSet recordSet(select);
-        if (recordSet.moveFirst())
+        if ((recordSet.rowCount() <= 1) && (recordSet.moveFirst()))
         {
             do
             {
@@ -760,6 +760,136 @@ void Database::FnSendDBParkingLotStatusToCentral(const std::string& tableName)
                     AppLogger::getInstance()->FnLog(updateMsg.str());
                 }
             } while (recordSet.moveNext());
+        }
+        else
+        {
+            AppLogger::getInstance()->FnLog("'tbl_ev_lot_trans' table contained multiple offline record need to be sent/clear first.");
+        }
+
+    }
+    catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
+    {
+        std::ostringstream msg;
+        msg << "POCO Exception: " << mySqlEx.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (mySqlEx.displayText().find("MySQL server has gone away") != std::string::npos)
+        {
+            FnSetDatabaseStatus(false);
+        }
+    }
+    catch(const Poco::Exception& ex)
+    {
+        std::ostringstream msg;
+        msg << __func__ << " POCO Exception: " << ex.displayText() << std::endl;
+        std::cerr << msg.str();
+        AppLogger::getInstance()->FnLog(msg.str());
+    }
+}
+
+void Database::FnSendOfflineDBParkingLotStatusToCentral(const std::string& tableName)
+{
+    // Local scope lock
+    Poco::Mutex::ScopedLock lock(databaseMutex_);
+
+    AppLogger::getInstance()->FnLog(__func__);
+
+    if (!session_->isGood())
+    {
+        FnSetDatabaseStatus(false);
+        AppLogger::getInstance()->FnLog("Database not in good connection.");
+        return;
+    }
+
+    try
+    {
+        std::string query = "SELECT * FROM " + tableName + " WHERE lot_in_central_sent_dt IS NULL AND lot_out_central_sent_dt IS NULL";
+        Poco::Data::Statement select(*session_);
+        select << query;
+
+        select.execute();
+        //AppLogger::getInstance()->FnLog(select.toString());
+
+        Poco::Data::RecordSet recordSet(select);
+        if (recordSet.moveFirst())
+        {
+            int rowIndex = 0;
+
+            do
+            {
+                std::string lot_in_image = "";
+                std::string lot_out_image = "";
+                Poco::Nullable<std::string> lot_in_central_sent_dt = Poco::Nullable<std::string>();
+                Poco::Nullable<std::string> lot_out_central_sent_dt = Poco::Nullable<std::string>();
+                std::string lot_no = recordSet["lot_no"].isEmpty() ? "" : recordSet["lot_no"].convert<std::string>();
+                std::string custom_park_lot_no = recordSet["custom_park_lot_no"].isEmpty() ? "" : recordSet["custom_park_lot_no"].convert<std::string>();
+                std::string lpn = recordSet["lpn"].isEmpty() ? "" : recordSet["lpn"].convert<std::string>();
+                std::string lot_in_image_path = recordSet["lot_in_image"].isEmpty() ? "" : recordSet["lot_in_image"].convert<std::string>();
+                std::string lot_out_image_path = recordSet["lot_out_image"].isEmpty() ? "" : recordSet["lot_out_image"].convert<std::string>();
+                std::string lot_in_dt = recordSet["lot_in_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSet["lot_in_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
+                std::string lot_out_dt = recordSet["lot_out_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSet["lot_out_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
+
+                if (!(lot_in_image_path.empty()))
+                {
+                   lot_in_image = Common::getInstance()->FnConverImageToBase64String(lot_in_image_path);
+                   lot_in_central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
+
+                }
+
+                if (!(lot_out_image_path.empty()))
+                {
+                    lot_out_image = Common::getInstance()->FnConverImageToBase64String(lot_out_image_path);
+                    lot_out_central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
+                }
+
+                // Log the values for each record
+                std::ostringstream selectMsg;
+                selectMsg << "Record: "
+                    << "lot_no=" << lot_no
+                    << "lot_no=" << custom_park_lot_no
+                    << ", lpn=" << lpn
+                    << ", lot_in_image_path=" << lot_in_image_path
+                    << ", lot_out_image_path=" << lot_out_image_path
+                    << ", lot_in_dt=" << lot_in_dt
+                    << ", lot_out_dt=" << lot_out_dt
+                    << ", lot_in_central_sent_dt=" << lot_in_central_sent_dt
+                    << ", lot_out_central_sent_dt=" << lot_out_central_sent_dt;
+                AppLogger::getInstance()->FnLog(selectMsg.str());
+
+                if (Central::getInstance()->FnSendParkInParkOutInfo(custom_park_lot_no, lpn, lot_in_image, lot_out_image, lot_in_dt, lot_out_dt))
+                {
+                    std::string id = recordSet["id"].convert<std::string>();
+
+                    // Update the record in database
+                    std::string updateQuery = "UPDATE " + tableName + " SET lot_in_central_sent_dt = ?, lot_out_central_sent_dt = ? WHERE id = ?";
+                    Poco::Data::Statement update(*session_);
+                    update << updateQuery,
+                            Poco::Data::Keywords::use(lot_in_central_sent_dt),
+                            Poco::Data::Keywords::use(lot_out_central_sent_dt),
+                            Poco::Data::Keywords::use(id);
+
+                    update.execute();
+
+                    AppLogger::getInstance()->FnLog(update.toString());
+                    std::ostringstream updateMsg;
+                    updateMsg << "lot_in_central_sent_dt=" << lot_in_central_sent_dt
+                        << ", lot_out_central_sent_dt=" << lot_out_central_sent_dt
+                        << ", id=" << id;
+                    AppLogger::getInstance()->FnLog(updateMsg.str());
+                }
+                else
+                {
+                    AppLogger::getInstance()->FnLog("Offline record in 'tbl_ev_lot_trans' table sent failed.");
+                    break;
+                }
+
+                rowIndex++;
+            } while (recordSet.moveNext() && rowIndex < 5);
+        }
+        else
+        {
+            AppLogger::getInstance()->FnLog("No offline record in 'tbl_ev_lot_trans' table need to be sent.");
         }
 
     }
@@ -843,6 +973,7 @@ void Database::FnInsertStatusRecord(const std::string& tableName, const std::str
     }
 }
 
+// Fix : Only send the latest device status to central
 void Database::FnSendDBDeviceStatusToCentral(const std::string& tableName)
 {
     // Local scope lock
@@ -867,44 +998,45 @@ void Database::FnSendDBDeviceStatusToCentral(const std::string& tableName)
         //AppLogger::getInstance()->FnLog(select.toString());
 
         Poco::Data::RecordSet recordSet(select);
-        if (recordSet.moveFirst())
+        if (recordSet.moveLast())
         {
-            do
+            std::string location_code = recordSet["location_code"].isEmpty() ? "" : recordSet["location_code"].convert<std::string>();
+            std::string device_ip = recordSet["device_ip"].isEmpty() ? "" : recordSet["device_ip"].convert<std::string>();
+            std::string error_code = recordSet["error_code"].isEmpty() ? "NULL" : recordSet["error_code"].convert<std::string>();
+            std::string central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
+
+            // Log the values for each record
+            std::ostringstream selectMsg;
+            selectMsg << "Record: "
+                << "location_code=" << location_code
+                << ", device_ip=" << device_ip
+                << ", error_code=" << error_code
+                << ", central_sent_dt=" << central_sent_dt;
+            AppLogger::getInstance()->FnLog(selectMsg.str());
+
+            if (Central::getInstance()->FnSendDeviceStatusUpdate(location_code, device_ip, error_code))
             {
-                std::string location_code = recordSet["location_code"].isEmpty() ? "" : recordSet["location_code"].convert<std::string>();
-                std::string device_ip = recordSet["device_ip"].isEmpty() ? "" : recordSet["device_ip"].convert<std::string>();
-                std::string error_code = recordSet["error_code"].isEmpty() ? "NULL" : recordSet["error_code"].convert<std::string>();
-                std::string central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
+                std::string id = recordSet["id"].convert<std::string>();
 
-                // Log the values for each record
-                std::ostringstream selectMsg;
-                selectMsg << "Record: "
-                    << "location_code=" << location_code
-                    << ", device_ip=" << device_ip
-                    << ", error_code=" << error_code
-                    << ", central_sent_dt=" << central_sent_dt;
-                AppLogger::getInstance()->FnLog(selectMsg.str());
+                // Update the record in database
+                std::string updateQuery = "UPDATE " + tableName + " SET central_sent_dt = ? WHERE id = ?";
+                Poco::Data::Statement update(*session_);
+                update << updateQuery,
+                        Poco::Data::Keywords::use(central_sent_dt),
+                        Poco::Data::Keywords::use(id);
 
-                if (Central::getInstance()->FnSendDeviceStatusUpdate(location_code, device_ip, error_code))
-                {
-                    std::string id = recordSet["id"].convert<std::string>();
+                update.execute();
 
-                    // Update the record in database
-                    std::string updateQuery = "UPDATE " + tableName + " SET central_sent_dt = ? WHERE id = ?";
-                    Poco::Data::Statement update(*session_);
-                    update << updateQuery,
-                            Poco::Data::Keywords::use(central_sent_dt),
-                            Poco::Data::Keywords::use(id);
-
-                    update.execute();
-
-                    AppLogger::getInstance()->FnLog(update.toString());
-                    std::ostringstream updateMsg;
-                    updateMsg << "lot_in_central_sent_dt=" << central_sent_dt
-                        << ", id=" << id;
-                    AppLogger::getInstance()->FnLog(updateMsg.str());
-                }
-            } while (recordSet.moveNext());
+                AppLogger::getInstance()->FnLog(update.toString());
+                std::ostringstream updateMsg;
+                updateMsg << "lot_in_central_sent_dt=" << central_sent_dt
+                    << ", id=" << id;
+                AppLogger::getInstance()->FnLog(updateMsg.str());
+            }
+        }
+        else
+        {
+            AppLogger::getInstance()->FnLog("No record in 'tbl_ev_lot_status' table need to be sent.");
         }
 
     }

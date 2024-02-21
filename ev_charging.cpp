@@ -27,6 +27,7 @@ int main(int argc, char* agrv[])
     EvtTimer::getInstance()->FnStartCameraTimerSyncTimer();
     EvtTimer::getInstance()->FnStartDeviceStatusUpdateTimer();
     EvtTimer::getInstance()->FnStartDatabaseReconnectionTimer();
+    EvtTimer::getInstance()->FnStartSendOfflineDBParkingLotStatusToCentralTimer();
 
     if (Central::getInstance()->FnGetCentralStatus() && Database::getInstance()->FnGetDatabaseStatus())
     {

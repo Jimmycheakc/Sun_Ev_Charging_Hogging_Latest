@@ -286,27 +286,38 @@ bool Central::doSendParkInParkOutInfo(Poco::Net::HTTPClientSession& session,
     std::ostream& requestStream = session.sendRequest(request);
     requestStream << jsonStringStream.str();
 
-    // Receive the response
-    std::istream& responseStream = session.receiveResponse(response);
-
-    // Log the response header
-    std::ostringstream msg;
-    msg << "Status : " << response.getStatus() << " Reason : " << response.getReason();
-    AppLogger::getInstance()->FnLog(msg.str());
-
-    if (response.getStatus() == Poco::Net::HTTPResponse::HTTP_OK)
+    try
     {
-        std::ostringstream rs;
-        Poco::StreamCopier::copyStream(responseStream, rs);
-        AppLogger::getInstance()->FnLog(rs.str());
+        // Receive the response
+        std::istream& responseStream = session.receiveResponse(response);
 
-        return true;
+        // Log the response header
+        std::ostringstream msg;
+        msg << "Status : " << response.getStatus() << " Reason : " << response.getReason();
+        AppLogger::getInstance()->FnLog(msg.str());
+
+        if (response.getStatus() == Poco::Net::HTTPResponse::HTTP_OK)
+        {
+            std::ostringstream rs;
+            Poco::StreamCopier::copyStream(responseStream, rs);
+            AppLogger::getInstance()->FnLog(rs.str());
+
+            return true;
+        }
+        else
+        {
+            Poco::NullOutputStream null;
+            Poco::StreamCopier::copyStream(responseStream, null);
+
+            return false;
+        }
     }
-    else
+    catch (Poco::TimeoutException& timeoutEx)
     {
-        Poco::NullOutputStream null;
-        Poco::StreamCopier::copyStream(responseStream, null);
+        // Log timeout error
+        AppLogger::getInstance()->FnLog("Timeout occurred while waiting for response.");
 
+        // Handle timeout error here, such as retrying the request or returning false
         return false;
     }
 }

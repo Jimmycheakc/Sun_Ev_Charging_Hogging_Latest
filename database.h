@@ -56,6 +56,7 @@ public:
     void FnSetThirdParkingLotStartUpFlag(bool flag=true);
 
     void FnSendDBParkingLotStatusToCentral(const std::string& tableName);
+    void FnSendOfflineDBParkingLotStatusToCentral(const std::string& tableName);
 
     // Table --> tbl_ev_lot_status
     void FnInsertStatusRecord(const std::string& tableName, const std::string& carpark_code, const std::string& device_ip, const std::string& error_code);
