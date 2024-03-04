@@ -261,12 +261,12 @@ void EventManager::handleParkOutEvent(const Database::parking_lot_t& parkOutInfo
         else if (parkOutInfo.lot_no.compare("2") == 0)
         {
             AppLogger::getInstance()->FnLog("Handle startup case, lot 2");
-            Database::getInstance()->FnSetFirstParkingLotStartUpFlag();
+            Database::getInstance()->FnSetSecondParkingLotStartUpFlag();
         }
         else if (parkOutInfo.lot_no.compare("3") == 0)
         {
             AppLogger::getInstance()->FnLog("Handle startup case, lot 3");
-            Database::getInstance()->FnSetFirstParkingLotStartUpFlag();
+            Database::getInstance()->FnSetThirdParkingLotStartUpFlag();
         }
 
         return;
