@@ -31,7 +31,7 @@ void Iniparser::FnIniParserInit()
 
     try
     {
-        pConf_ = new Poco::Util::IniFileConfiguration("../configuration.ini");
+        pConf_ = new Poco::Util::IniFileConfiguration("/home/odroid/Desktop/Sun_Ev_Charging_Hogging/configuration.ini");
 
         parkingLotLocationCode_ = pConf_->getString("setting.parking_lot_location_code");
         timerForFilteringSnapShot_ = pConf_->getInt("setting.timer_for_filtering_snapshot");

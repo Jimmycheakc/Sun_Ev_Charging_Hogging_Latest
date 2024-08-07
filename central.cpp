@@ -53,6 +53,7 @@ bool Central::doSendHeartBeatUpdate(Poco::Net::HTTPClientSession& session, Poco:
     jsonObject->set("username", username);
     jsonObject->set("password", password);
     jsonObject->set("carpark_code", Iniparser::getInstance()->FnGetParkingLotLocationCode());
+    jsonObject->set("device_ip", Common::getInstance()->FnGetIpAddress());
     jsonObject->set("heartbeat_dt", Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS());
     jsonObject->set("msg", "Hearbeat Update");
 
