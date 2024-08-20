@@ -88,6 +88,7 @@ bool Camera::isImageDirectoryExists()
 void Camera::FnCameraInit()
 {
     cameraStatus_ = FnGetHeartBeat();
+    FnSetCurrentTime();
 }
 
 void Camera::FnSetCameraStatus(bool status)
