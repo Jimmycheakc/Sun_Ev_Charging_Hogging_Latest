@@ -145,7 +145,7 @@ bool Central::FnSendHeartBeatUpdate()
     return ret;
 }
 
-bool Central::doSendDeviceStatusUpdate(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response, const std::string& location_code, const std::string& deviceIP, const std::string& ec)
+bool Central::doSendDeviceStatusUpdate(Poco::Net::HTTPClientSession& session, Poco::Net::HTTPRequest& request, Poco::Net::HTTPResponse& response, const std::string& location_code, const std::string& deviceIP, const std::string& ec, const std::string& error_dt)
 {
     AppLogger ::getInstance()->FnLog(request.getURI());
 
@@ -157,6 +157,7 @@ bool Central::doSendDeviceStatusUpdate(Poco::Net::HTTPClientSession& session, Po
     jsonObject->set("carpark_code", location_code);
     jsonObject->set("device_ip", deviceIP);
     jsonObject->set("error_code", ec);
+    jsonObject->set("error_dt", error_dt);
     
     std::ostringstream jsonStringStream;
     jsonObject->stringify(jsonStringStream);
@@ -191,7 +192,7 @@ bool Central::doSendDeviceStatusUpdate(Poco::Net::HTTPClientSession& session, Po
     }
 }
 
-bool Central::FnSendDeviceStatusUpdate(const std::string& location_code, const std::string& deviceIP, const std::string& ec)
+bool Central::FnSendDeviceStatusUpdate(const std::string& location_code, const std::string& deviceIP, const std::string& ec, const std::string& error_dt)
 {
     // Local scope lock
     Poco::Mutex::ScopedLock lock(centralMutex_);
@@ -222,13 +223,13 @@ bool Central::FnSendDeviceStatusUpdate(const std::string& location_code, const s
 
         int retry = 0;
         
-        if (!doSendDeviceStatusUpdate(session, request, response, location_code, deviceIP, ec))
+        if (!doSendDeviceStatusUpdate(session, request, response, location_code, deviceIP, ec, error_dt))
         {
             retry = 3;
 
             while (retry > 0)
             {
-                if (doSendDeviceStatusUpdate(session, request, response, location_code, deviceIP, ec))
+                if (doSendDeviceStatusUpdate(session, request, response, location_code, deviceIP, ec, error_dt))
                 {
                     ret = true;
                     break;

@@ -930,17 +930,19 @@ void Database::FnInsertStatusRecord(const std::string& tableName, const std::str
 
     try
     {
-        std::string query = "INSERT INTO " + tableName + " (location_code, device_ip, error_code) VALUES(?, ?, ?)";
+        std::string query = "INSERT INTO " + tableName + " (location_code, device_ip, error_code, error_dt) VALUES(?, ?, ?, ?)";
         Poco::Data::Statement insert(*session_);
 
         Poco::Nullable<std::string> location_code(carpark_code.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(carpark_code));
         Poco::Nullable<std::string> device_ip(dev_ip.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(dev_ip));
         Poco::Nullable<std::string> error_code(ec.empty() ? Poco::Nullable<std::string>() : Poco::Nullable<std::string>(ec));
+        std::string error_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
 
         insert << query,
                 Poco::Data::Keywords::use(location_code),
                 Poco::Data::Keywords::use(device_ip),
-                Poco::Data::Keywords::use(error_code);
+                Poco::Data::Keywords::use(error_code),
+                Poco::Data::Keywords::use(error_dt);
 
         insert.execute();
         
@@ -949,7 +951,8 @@ void Database::FnInsertStatusRecord(const std::string& tableName, const std::str
         msg << insert.toString();
         msg << " ==> (" << location_code << ", ";
         msg << device_ip << ", ";
-        msg << error_code << ")";
+        msg << error_code << ", ";
+        msg << error_dt << ")";
         AppLogger::getInstance()->FnLog(msg.str());
     }
     catch (const Poco::Data::MySQL::MySQLException& mySqlEx)
@@ -998,41 +1001,46 @@ void Database::FnSendDBDeviceStatusToCentral(const std::string& tableName)
         //AppLogger::getInstance()->FnLog(select.toString());
 
         Poco::Data::RecordSet recordSet(select);
-        if (recordSet.moveLast())
+        if (recordSet.moveFirst())
         {
-            std::string location_code = recordSet["location_code"].isEmpty() ? "" : recordSet["location_code"].convert<std::string>();
-            std::string device_ip = recordSet["device_ip"].isEmpty() ? "" : recordSet["device_ip"].convert<std::string>();
-            std::string error_code = recordSet["error_code"].isEmpty() ? "NULL" : recordSet["error_code"].convert<std::string>();
-            std::string central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
-
-            // Log the values for each record
-            std::ostringstream selectMsg;
-            selectMsg << "Record: "
-                << "location_code=" << location_code
-                << ", device_ip=" << device_ip
-                << ", error_code=" << error_code
-                << ", central_sent_dt=" << central_sent_dt;
-            AppLogger::getInstance()->FnLog(selectMsg.str());
-
-            if (Central::getInstance()->FnSendDeviceStatusUpdate(location_code, device_ip, error_code))
+            do
             {
-                std::string id = recordSet["id"].convert<std::string>();
+                std::string location_code = recordSet["location_code"].isEmpty() ? "" : recordSet["location_code"].convert<std::string>();
+                std::string device_ip = recordSet["device_ip"].isEmpty() ? "" : recordSet["device_ip"].convert<std::string>();
+                std::string error_code = recordSet["error_code"].isEmpty() ? "NULL" : recordSet["error_code"].convert<std::string>();
+                std::string error_dt = recordSet["error_dt"].isEmpty() ? "" : Poco::DateTimeFormatter::format(recordSet["error_dt"].convert<Poco::DateTime>(), "%Y-%m-%d %H:%M:%S");
+                std::string central_sent_dt = Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS();
 
-                // Update the record in database
-                std::string updateQuery = "UPDATE " + tableName + " SET central_sent_dt = ? WHERE id = ?";
-                Poco::Data::Statement update(*session_);
-                update << updateQuery,
-                        Poco::Data::Keywords::use(central_sent_dt),
-                        Poco::Data::Keywords::use(id);
+                // Log the values for each record
+                std::ostringstream selectMsg;
+                selectMsg << "Record: "
+                    << "location_code=" << location_code
+                    << ", device_ip=" << device_ip
+                    << ", error_code=" << error_code
+                    << ", error_dt=" << error_dt
+                    << ", central_sent_dt=" << central_sent_dt;
+                AppLogger::getInstance()->FnLog(selectMsg.str());
 
-                update.execute();
+                if (Central::getInstance()->FnSendDeviceStatusUpdate(location_code, device_ip, error_code, error_dt))
+                {
+                    std::string id = recordSet["id"].convert<std::string>();
 
-                AppLogger::getInstance()->FnLog(update.toString());
-                std::ostringstream updateMsg;
-                updateMsg << "lot_in_central_sent_dt=" << central_sent_dt
-                    << ", id=" << id;
-                AppLogger::getInstance()->FnLog(updateMsg.str());
-            }
+                    // Update the record in database
+                    std::string updateQuery = "UPDATE " + tableName + " SET central_sent_dt = ? WHERE id = ?";
+                    Poco::Data::Statement update(*session_);
+                    update << updateQuery,
+                            Poco::Data::Keywords::use(central_sent_dt),
+                            Poco::Data::Keywords::use(id);
+
+                    update.execute();
+
+                    AppLogger::getInstance()->FnLog(update.toString());
+                    std::ostringstream updateMsg;
+                    updateMsg << "lot_in_central_sent_dt=" << central_sent_dt
+                        << ", id=" << id;
+                    AppLogger::getInstance()->FnLog(updateMsg.str());
+                }
+            } while (recordSet.moveNext());
         }
         else
         {

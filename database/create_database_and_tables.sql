@@ -27,5 +27,6 @@ CREATE TABLE IF NOT EXISTS tbl_ev_lot_status (
     location_code VARCHAR(10),
     device_ip VARCHAR(20),
     error_code VARCHAR(10),
+    error_dt DATETIME,
     central_sent_dt DATETIME
 );

@@ -34,7 +34,7 @@ int main(int argc, char* agrv[])
         std::stringstream ss;
         ss << "Central status : " << Central::getInstance()->FnGetCentralStatus() << " , Database status : " << Database::getInstance()->FnGetDatabaseStatus();
         AppLogger::getInstance()->FnLog(ss.str());
-        Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Common::getInstance()->FnGetIpAddress(), Central::ERROR_CODE_RECOVERED);
+        Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Common::getInstance()->FnGetIpAddress(), Central::ERROR_CODE_RECOVERED, Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS());
     }
 
     if (Central::getInstance()->FnGetCentralStatus() && Camera::getInstance()->FnGetCameraStatus())
@@ -42,7 +42,7 @@ int main(int argc, char* agrv[])
         std::stringstream ss;
         ss << "Central status : " << Central::getInstance()->FnGetCentralStatus() << " , Camera status : " << Camera::getInstance()->FnGetCameraStatus();
         AppLogger::getInstance()->FnLog(ss.str());
-        Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Iniparser::getInstance()->FnGetCameraIP(), Central::ERROR_CODE_RECOVERED);
+        Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Iniparser::getInstance()->FnGetCameraIP(), Central::ERROR_CODE_RECOVERED, Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS());
     }
 
     while(true)

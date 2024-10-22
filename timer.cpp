@@ -227,12 +227,12 @@ void EvtTimer::onDeviceStatusUpdateTimerTimeout(Poco::Timer& timer)
         if (!Camera::getInstance()->FnGetCameraStatus())
         {
             AppLogger::getInstance()->FnLog("Database status : Bad, Camera status : Bad, Error code : ERROR_CODE_CAMERA");
-            Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Iniparser::getInstance()->FnGetCameraIP(), Central::ERROR_CODE_CAMERA);
+            Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Iniparser::getInstance()->FnGetCameraIP(), Central::ERROR_CODE_CAMERA, Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS());
             Camera::getInstance()->FnSetCameraRecoveryFlag(true);
         }
 
         AppLogger::getInstance()->FnLog("Database status : Bad, Error code : ERROR_CODE_IPC");
-        Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Common::getInstance()->FnGetIpAddress(), Central::ERROR_CODE_IPC);
+        Central::getInstance()->FnSendDeviceStatusUpdate(Iniparser::getInstance()->FnGetParkingLotLocationCode(), Common::getInstance()->FnGetIpAddress(), Central::ERROR_CODE_IPC, Common::getInstance()->FnCurrentFormatDateYYYY_MM_DD_HH_MM_SS());
         // Set recovery flag to true, and try database reconnect
         Database::getInstance()->FnSetDatabaseRecoveryFlag(true);
         Database::getInstance()->FnDatabaseReconnect();
